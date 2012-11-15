@@ -1,4 +1,4 @@
-opensims
-========
+osimspine
+=========
 
 Opensim central client code.
