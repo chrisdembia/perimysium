@@ -1,1 +1,2 @@
-from osimspine import *
+import dataman
+

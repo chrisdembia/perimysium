@@ -128,7 +128,7 @@ class Subject(object):
     def __init__(self, hamner, number):
         """ TODO """
         self.hamner = hamner
-        self.name = name_pre + str(number)
+        self.name = self.name_pre + str(number)
         self._speeds = []
 
     def copy_new(self, from_path, to_path):
