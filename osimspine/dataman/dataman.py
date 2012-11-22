@@ -13,6 +13,11 @@ class Dataman(object):
         pass
 
 
+class ChandMLwalk(Dataman):
+    """Mediolateral analysis of walking."""
+    pass
+
+
 class HamnerXX(Dataman):
     """Manages Hamner's 20-subject running data. XX is for 20 in Roman
     numerals.
