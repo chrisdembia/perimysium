@@ -49,14 +49,14 @@ class HamnerXX(Dataman):
     numerals.
 
     """
-    expdir = os.path.join("HPL_Data", "Hamner_Test")
-    osimdir = "OpenSimResults"
-    cmc_actuators_from = "gait2392_CMC_Actuators.xml"
-    cmc_tasks_from = "gait2392_CMC_Tasks.xml"
+    expdir = os.path.join("hpl_data", "hamner_test")
+    osimdir = "opensimresults"
+    cmc_actuators_from = "gait2392_cmc_actuators.xml"
+    cmc_tasks_from = "gait2392_cmc_tasks.xml"
     cmc_actuators_to = "cmc_actuators.xml"
     cmc_tasks_to = "cmc_tasks.xml"
-    cop_from = os.path.join("Session 2", "ExportedData",
-            "Run_%i00 02_newCOP3_v24.mot")
+    cop_from = os.path.join("session 2", "exporteddata",
+            "run_%i00 02_newcop3_v24.mot")
     cop_to = "cop.mot"
     # TODO move from-names from Cycle to here.
 
@@ -210,8 +210,8 @@ class HamnerXX(Dataman):
 class Subject(object):
 
     name_pre = "subject"
-    cmc_dirname = "cmc_multipleSteps_v24_Tendon_040_Vmax_15_Passive_10_2X/"
-    rra_dirname = "rra_multipleSteps"
+    cmc_dirname = "cmc_multiplesteps_v24_tendon_040_vmax_15_passive_10_2x/"
+    rra_dirname = "rra_multiplesteps"
     speed_map = {1: 2, 2: 3, 3: 4, 4: 5}
 
     def __init__(self, hamner, index, speed_idxs):
@@ -278,10 +278,10 @@ class Subject(object):
 class Speed(object):
 
     name_pre = "speed"
-    speed_cmc_dirname = "CMC_Results_v240_Run_%i0002"
-    speed_rra_dirname = "RRA_Results_v191_Run_%i0002"
-    cycle_cmc_from_dir = "CMC_Results_v240_Run_%i0002_cycle%i"
-    cycle_rra_from_dir = "RRA_Results_v191_Run_%i0002_cycle%i"
+    speed_cmc_dirname = "cmc_results_v240_run_%i0002"
+    speed_rra_dirname = "rra_results_v191_run_%i0002"
+    cycle_cmc_from_dir = "cmc_results_v240_run_%i0002_cycle%i"
+    cycle_rra_from_dir = "rra_results_v191_run_%i0002_cycle%i"
 
     def __init__(self, hamner, subject, index, speed):
         self.hamner = hamner
