@@ -360,7 +360,7 @@ class Cycle(object):
 
         self.grf_from = "%s_run_%i0002_cycle%i_grf_v240.xml" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
-        self.concon_from = "%s_run_%i002_cycle%i_controlconstraints.xml" % (
+        self.concon_from = "%s_run_%i0002_cycle%i_controlconstraints.xml" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
         self.cmc_setup_from = "%s_setup_cmc_run_%i0002_cycle%i_v240.xml" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
@@ -380,64 +380,83 @@ class Cycle(object):
                 self.name)
         if not os.path.exists(cycle_dir): os.mkdir(cycle_dir)
 
-        if self.hamner.copy_mode == self.hamner.CopyMode.MINIMAL:
+        # Prepare filenames for movement.
+        grf_from = os.path.join(from_path, self.speed.cmc_from_dir,
+                self.grf_from)
+        concon_from = os.path.join(from_path, self.speed.cmc_from_dir,
+                self.concon_from)
+        cmc_setup_from = os.path.join(from_path,
+                self.speed.cmc_from_dir, self.cmc_setup_from)
+        kin_from = os.path.join(from_path, self.speed.rra_from_dir,
+                self.speed.cycle_rra_from_dir % (
+                    self.speed.speed, self.cycle_idx),
+                self.kin_from)
+        model_from = os.path.join(from_path, self.speed.rra_from_dir,
+                self.model_from)
 
-            # Prepare filenames for movement.
-            grf_from = os.path.join(from_path, self.speed.cmc_from_dir,
-                    self.grf_from)
-            concon_from = os.path.join(from_path, self.speed.cmc_from_dir,
-                    self.concon_from)
-            cmc_setup_from = os.path.join(from_path,
-                    self.speed.cmc_from_dir, self.cmc_setup_from)
-            kin_from = os.path.join(from_path, self.speed.rra_from_dir,
-                    self.speed.cycle_rra_from_dir % (
-                        self.speed.speed, self.cycle_idx),
-                    self.kin_from)
-            model_from = os.path.join(from_path, self.speed.rra_from_dir,
-                    self.model_from)
+        grf_to = os.path.join(to_path, self.subject.name, self.speed.name,
+                self.name, self.hamner.grf_to)
+        concon_to = os.path.join(to_path, self.subject.name,
+                self.speed.name, self.name, self.hamner.concon_to)
+        cmc_setup_to = os.path.join(to_path, self.subject.name,
+                self.speed.name, self.name, self.hamner.cmc_setup_to)
+        kin_to = os.path.join(to_path, self.subject.name,
+                self.speed.name, self.name, self.hamner.kin_to)
+        model_to = os.path.join(to_path, self.subject.name,
+                self.speed.name, self.name, self.hamner.model_to)
 
-            grf_to = os.path.join(to_path, self.subject.name, self.speed.name,
-                    self.name, self.hamner.grf_to)
-            concon_to = os.path.join(to_path, self.subject.name,
-                    self.speed.name, self.name, self.hamner.concon_to)
-            cmc_setup_to = os.path.join(to_path, self.subject.name,
-                    self.speed.name, self.name, self.hamner.cmc_setup_to)
-            kin_to = os.path.join(to_path, self.subject.name,
-                    self.speed.name, self.name, self.hamner.kin_to)
-            model_to = os.path.join(to_path, self.subject.name,
-                    self.speed.name, self.name, self.hamner.model_to)
+        # Package for looping.
+        pairs = {
+                'grf': (grf_from, grf_to),
+                'concon': (concon_from, concon_to),
+                'cmc_setup': (cmc_setup_from, cmc_setup_to),
+                'kin': (kin_from, kin_to),
+                'model': (model_from, model_to),
+                }
+
+        self.hamner._actuallycopy(pairs);
+
+        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
+            # These are the files that need to be duplicated.
+            # Subject-level: actuators, tasks.
+            # Speed-level: cop
+
+            actuators_from = os.path.join(from_path, self.hamner.osimdir,
+                    self.subject.name, self.subject.cmc_dirname,
+                    self.hamner.cmc_actuators_from)
+            tasks_from = os.path.join(from_path, self.hamner.osimdir,
+                    self.subject.name, self.subject.cmc_dirname,
+                    self.hamner.cmc_tasks_from)
+            cop_from = os.path.join(from_path, self.hamner.expdir,
+                    self.subject.name, self.hamner.cop_from % self.speed.speed)
+
+            actuators_to = os.path.join(to_path, self.subject.name,
+                    self.speed.name, self.name, self.hamner.cmc_actuators_to)
+            tasks_to = os.path.join(to_path, self.subject.name,
+                    self.speed.name, self.name, self.hamner.cmc_tasks_to)
+            cop_to = os.path.join(to_path, self.subject.name, self.speed.name,
+                    self.name, self.hamner.cop_to)
 
             # Package for looping.
             pairs = {
-                    'grf': (grf_from, grf_to),
-                    'concon': (concon_from, concon_to),
-                    'cmc_setup': (cmc_setup_from, cmc_setup_to),
-                    'kin': (kin_from, kin_to),
-                    'model': (model_from, model_to),
+                    'actuators': (actuators_from, actuators_to),
+                    'tasks': (tasks_from, tasks_to)
+                    'cop': (cop_from, cop_to)
                     }
 
-            self.hamner._actuallycopy(pairs);
-
-        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
-            raise Exception("TODO")
+            self.hamner._actuallycopy(pairs)
 
     def _modify_cmc_setups(self, to_path):
 
-        if self.hamner.copy_mode == self.hamner.CopyMode.MINIMAL:
+        # --- Modify the CMC file.
+        fname = os.path.join(to_path, self.subject.name, self.speed.name,
+                self.name, self.hamner.cmc_setup_to)
+        self._modify_cmc_setup_impl(fname)
 
-            # --- Modify the CMC file.
-            fname = os.path.join(to_path, self.subject.name, self.speed.name,
-                    self.name, self.hamner.cmc_setup_to)
-            self._modify_cmc_setup_impl(fname)
-
-            # --- Modify the GRF file.
-            grf_fname = os.path.join(to_path, self.subject.name,
-                    self.speed.name, self.name, self.hamner.grf_to)
-            self._modify_grf_impl(grf_fname)
-
-        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
-            raise Exception("TODO")
-
+        # --- Modify the GRF file.
+        grf_fname = os.path.join(to_path, self.subject.name,
+                self.speed.name, self.name, self.hamner.grf_to)
+        self._modify_grf_impl(grf_fname)
 
     def _modify_cmc_setup_impl(self, fname, prepend_path='.',
             results_dir='results'):
@@ -445,18 +464,47 @@ class Cycle(object):
         whether copy mode is set to be MINIMAl or CONSERVATIVE.
 
         """
+        # Read into an ElementTree for parsing and modification.
+        setup = etree.parse(fname)
+
+        # -- model_file.
+        mf = setup.findall('.//model_file')
+        # TODO consider logging instead.
+        if len(mf) != 1: self._xml_find_raise('model_file', fname)
+        # Change the entry.
+        mf[0].text = os.path.join(prepend_path, self.hamner.model_to)
+
+        # -- results_directory
+        rd = setup.findall('.//results_directory')
+        # Error check.
+        if len(rd) != 1: self._xml_find_raise('results_directory', fname)
+        # Change the entry: place holder.
+        rd[0].text = os.path.join(prepend_path, results_dir)
+
+        # -- external_loads_file
+        ext = setup.findall('.//external_loads_file')
+        # Error check.
+        if len(ext) != 1: self._xml_find_raise('external_loads_file', fname)
+        # Change the entry.
+        ext[0].text = os.path.join(self.hamner.grf_to)
+        # TODO inconsistent naming btn external loads and grf.
+
+        # -- desired_kinematics_file
+        kin = setup.findall('.//desired_kinematics_file')
+        # Error check.
+        if len(kin) != 1: self._xml_find_raise('desired_kinematics_file',
+                fname)
+        # Change the entry.
+        kin[0].text = os.path.join(prepend_path, self.hamner.kin_to)
+
+        # -- constraints_file
+        concon = setup.findall('.//constraints_file')
+        # Error check.
+        if len(concon) != 1: self._xml_find_raise('constraints_file', fname)
+        # Change the entry.
+        concon[0].text = os.path.join(prepend_path, self.hamner.concon_to)
+
         if self.hamner.copy_mode == self.hamner.CopyMode.MINIMAL:
-
-            # Read into an ElementTree for parsing and modification.
-            setup = etree.parse(fname)
-
-            # -- model_file.
-            mf = setup.findall('.//model_file')
-            # TODO consider logging instead.
-            if len(mf) != 1: self._xml_find_raise('model_file', fname)
-            # Change the entry.
-            mf[0].text = os.path.join(prepend_path, self.hamner.model_to)
-
             # -- force_set_files
             act = setup.findall('.//force_set_files')
             # Error-check.
@@ -464,29 +512,6 @@ class Cycle(object):
             # Change the entry: file located in to_path
             act[0].text = os.path.join(prepend_path, '..', '..', '..',
                     self.hamner.cmc_actuators_to)
-
-            # -- results_directory
-            rd = setup.findall('.//results_directory')
-            # Error check.
-            if len(rd) != 1: self._xml_find_raise('results_directory', fname)
-            # Change the entry: place holder.
-            rd[0].text = os.path.join(prepend_path, results_dir)
-
-            # -- external_loads_file
-            ext = setup.findall('.//external_loads_file')
-            # Error check.
-            if len(ext) != 1: self._xml_find_raise('external_loads_file', fname)
-            # Change the entry.
-            ext[0].text = os.path.join(self.hamner.grf_to)
-            # TODO inconsistent naming btn external loads and grf.
-
-            # -- desired_kinematics_file
-            kin = setup.findall('.//desired_kinematics_file')
-            # Error check.
-            if len(kin) != 1: self._xml_find_raise('desired_kinematics_file',
-                    fname)
-            # Change the entry.
-            kin[0].text = os.path.join(prepend_path, self.hamner.kin_to)
 
             # -- task_set_file
             task = setup.findall('.//task_set_file')
@@ -496,32 +521,34 @@ class Cycle(object):
             task[0].text = os.path.join(prepend_path, '..', '..', '..',
                     self.hamner.cmc_tasks_to)
 
-            # -- constraints_file
-            concon = setup.findall('.//constraints_file')
+        elif self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
+            # -- force_set_files
+            act = setup.findall('.//force_set_files')
+            # Error-check.
+            if len(act) != 1: self._xml_find_raise('force_set_files', fname)
+            # Change the entry: file located in to_path
+            act[0].text = os.path.join(prepend_path,
+                    self.hamner.cmc_actuators_to)
+
+            # -- task_set_file
+            task = setup.findall('.//task_set_file')
             # Error check.
-            if len(concon) != 1: self._xml_find_raise('constraints_file', fname)
-            # Change the entry.
-            concon[0].text = os.path.join(prepend_path, self.hamner.concon_to)
+            if len(task) != 1: self._xml_find_raise('task_set_file', fname)
+            # Change the entry: file located in to_path
+            task[0].text = os.path.join(prepend_path, self.hamner.cmc_tasks_to)
 
-            # Save the modified file.
-            setup.write(fname)
-
-        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
-            # Open the CMC setup file.
-
-            # Open the GRF file.
-            raise Exception("TODO")
+        # Save the modified file.
+        setup.write(fname)
 
     def _modify_grf_impl(self, fname, prepend_path='.'):
         """Modifies a pre-existing GRF file. This action depends on
         whether copy mode is set to be MINIMAl or CONSERVATIVE.
 
         """
+        # Read into an ElementTree for parsing and modification.
+        grf_tree = etree.parse(fname)
+
         if self.hamner.copy_mode == self.hamner.CopyMode.MINIMAL:
-
-            # Read into an ElementTree for parsing and modification.
-            grf_tree = etree.parse(fname)
-
             # -- datafile
             dat = grf_tree.findall('.//datafile')
             # Error check.
@@ -529,11 +556,16 @@ class Cycle(object):
             # Change the entry.
             dat[0].text = os.path.join(prepend_path, '..', self.hamner.cop_to)
 
-            # Save the file.
-            grf_tree.write(fname)
+        elif self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
+            # -- datafile
+            dat = grf_tree.findall('.//datafile')
+            # Error check.
+            if len(dat) != 1: self._xml_find_raise('datafile', grf_fname)
+            # Change the entry.
+            dat[0].text = os.path.join(prepend_path, self.hamner.cop_to)
 
-        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
-            raise Exception("TODO")
+        # Save the file.
+        grf_tree.write(fname)
 
     @staticmethod
     def _xml_find_raise(tag, fname):
@@ -585,7 +617,7 @@ class Cycle(object):
         # --- Modifying GRF file's knowledge of where cop.xml is.
         # TODO also need grf.xml in the current directory.
         self._modify_grf_impl(os.path.join(input_path, self.hamner.grf_to),
-                prepend_path='..'):
+                prepend_path='..')
 
         # Run CMC.
         os.chdir(results_path)
