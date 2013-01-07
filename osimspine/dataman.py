@@ -440,7 +440,7 @@ class Cycle(object):
             # Package for looping.
             pairs = {
                     'actuators': (actuators_from, actuators_to),
-                    'tasks': (tasks_from, tasks_to)
+                    'tasks': (tasks_from, tasks_to),
                     'cop': (cop_from, cop_to)
                     }
 
@@ -611,7 +611,9 @@ class Cycle(object):
         os.mkdir(results_path)
 
         # Reflect file movements in the cmc setup file.
-        self._modify_cmc_setup_impl(cmc_setup_path, prepend_path='..',
+        #self._modify_cmc_setup_impl(cmc_setup_path, prepend_path='..',
+        #        results_dir=results_dirname)
+        self._modify_cmc_setup_impl(cmc_setup_path, prepend_path=os.path.join(input_path, '..'),
                 results_dir=results_dirname)
 
         # --- Modifying GRF file's knowledge of where cop.xml is.
