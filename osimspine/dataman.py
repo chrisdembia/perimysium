@@ -573,8 +573,7 @@ class Cycle(object):
         results_path = os.path.join(cycle_path, results_dirname)
         if os.path.exists(results_path):
             raise Exception(("A run with name '{0}' may already exist. " +
-                    "Not overwriting.").format(
-                name))
+                    "Not overwriting.").format(name))
 
         # Create the input directory.
         os.mkdir(results_path)
@@ -585,23 +584,8 @@ class Cycle(object):
 
         # --- Modifying GRF file's knowledge of where cop.xml is.
         # TODO also need grf.xml in the current directory.
-        
-        # Read into an ElementTree for parsing and modification.
-        grf_tree = etree.parse(os.path.join(input_path, self.hamner.grf_to))
-
-        # -- datafile
-        dat = grf_tree.findall('.//datafile')
-        # Error check.
-        if len(dat) != 1: self._xml_find_raise('datafile', grf_fname)
-        # Change the entry.
-        dat[0].text = os.path.join(self.hamner.cop_to)
-
-        # Save the file.
-        grf_tree.write(os.path.join(input_path, self.hamner.grf_to))
-
-        # Make a symbolic link to the file that's actually two directories up.
-        # ONLY ON UNIX.
-        os.symlink(os.path.join(to_path, self.subject.name, self.speed.name, self.hamner.cop_to), os.path.join(input_path, self.hamner.cop_to))
+        self._modify_grf_impl(os.path.join(input_path, self.hamner.grf_to),
+                prepend_path='..'):
 
         # Run CMC.
         os.chdir(results_path)
