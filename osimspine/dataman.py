@@ -72,10 +72,12 @@ class HamnerXX(Dataman):
         MINIMAL=1
         CONSERVATIVE=2
 
-    def __init__(self, from_path, subject_idxs, speed_idxs):
+    def __init__(self, cmc_exec, from_path, subject_idxs, speed_idxs):
         """
         Parameters
         ----------
+        cmc_exec : str
+            Path to cmc executable.
         from_path : str
             Something that probably ends in 'Hamner_Data'.
         n_subjects : int
@@ -84,6 +86,7 @@ class HamnerXX(Dataman):
 
         """
         self.log = Log("hamnerxxlog.txt")
+        self.cmc_exec = cmc_exec
         self._copy_mode = self.CopyMode.CONSERVATIVE
         self.from_path = from_path
         self.n_subjects = len(subject_idxs)
@@ -181,7 +184,9 @@ class HamnerXX(Dataman):
 
         """
         # If to_path doesn't exist, make it!
-        if not os.path.exists(to_path): os.mkdir(to_path)
+        if os.path.exists(to_path):
+            raise Exception("Path {0!r} already exists.".format(to_path))
+        os.mkdir(to_path)
 
         # Only copies files over.
         for subj in self._subjects:
@@ -256,9 +261,6 @@ class Subject(object):
 
             self.hamner._actuallycopy(pairs)
 
-        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
-            raise Exception("TODO")
-
         for speed in self._speeds:
             speed._copy_cmc_new(to_path)
 
@@ -305,7 +307,6 @@ class Speed(object):
             else:
                 keepGoing = False
 
-
     def _copy_cmc_new(self, to_path):
         """ TODO """
 
@@ -329,9 +330,6 @@ class Speed(object):
                     }
 
             self.hamner._actuallycopy(pairs)
-
-        if self.hamner.copy_mode == self.hamner.CopyMode.CONSERVATIVE:
-            raise Exception("TODO")
 
         for cycle in self._cycles:
             cycle._copy_cmc_new(to_path)
@@ -360,16 +358,16 @@ class Cycle(object):
         self.cycle_idx = index
         self.name = self.name_pre + "{:02g}".format(index)
 
-        self.grf_from = "%s_Run_%i0002_cycle%i_GRF_v240.xml" % (
+        self.grf_from = "%s_run_%i0002_cycle%i_grf_v240.xml" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
-        self.concon_from = "%s_Run_%i002_cycle%i_ControlConstraints.xml" % (
+        self.concon_from = "%s_run_%i002_cycle%i_controlconstraints.xml" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
-        self.cmc_setup_from = "%s_Setup_CMC_Run_%i0002_cycle%i_v240.xml" % (
+        self.cmc_setup_from = "%s_setup_cmc_run_%i0002_cycle%i_v240.xml" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
-        self.kin_from = "%s_Run_%i0002_cycle%i_Kinematics_q.sto" % (
+        self.kin_from = "%s_run_%i0002_cycle%i_kinematics_q.sto" % (
                 self.subject.name, self.speed.speed, self.cycle_idx)
-        self.model_from = ("%s_RRA_adjusted_Run_%i0002_cycle%i_v191_" +
-                "Tendon_040_Vmax_15_Passive_10_2X.osim") % (
+        self.model_from = ("%s_rra_adjusted_run_%i0002_cycle%i_v191_" +
+                "tendon_040_vmax_15_passive_10_2x.osim") % (
                     self.subject.name, self.speed.speed, self.cycle_idx)
 
     def _copy_cmc_new(self, to_path):
@@ -585,14 +583,30 @@ class Cycle(object):
         self._modify_cmc_setup_impl(cmc_setup_path, prepend_path='..',
                 results_dir=results_dirname)
 
+        # --- Modifying GRF file's knowledge of where cop.xml is.
         # TODO also need grf.xml in the current directory.
-        self._modify_grf_impl(os.path.join(input_path, self.hamner.grf_to),
-                prepend_path='..')
+        
+        # Read into an ElementTree for parsing and modification.
+        grf_tree = etree.parse(os.path.join(input_path, self.hamner.grf_to))
 
-        # Run this stuff.
+        # -- datafile
+        dat = grf_tree.findall('.//datafile')
+        # Error check.
+        if len(dat) != 1: self._xml_find_raise('datafile', grf_fname)
+        # Change the entry.
+        dat[0].text = os.path.join(self.hamner.cop_to)
+
+        # Save the file.
+        grf_tree.write(os.path.join(input_path, self.hamner.grf_to))
+
+        # Make a symbolic link to the file that's actually two directories up.
+        # ONLY ON UNIX.
+        os.symlink(os.path.join(to_path, self.subject.name, self.speed.name, self.hamner.cop_to), os.path.join(input_path, self.hamner.cop_to))
+
+        # Run CMC.
         os.chdir(results_path)
         # TODO must generalize how we find this executable.
-        os.system("/home/fitze/simtk/opensim300/bin/cmc -S {0}".format(
+        os.system("{0} -S {1}".format(self.hamner.cmc_exec,
             os.path.join('..', input_dirname, self.hamner.cmc_setup_to)))
 
 
