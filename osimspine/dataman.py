@@ -7,13 +7,18 @@
 # changes that need to be made to the model file.
 # TODO allow specifying which cycles to manage.
 
+import csv
 import shutil
 import os
 import abc
 import filecmp
 import xml.etree.ElementTree as etree
 
+import tables
+import numpy as np
+
 from cherithon import log
+import swirl
 
 class Log(log.Log):
     """ TODO """
@@ -68,11 +73,32 @@ class HamnerXX(Dataman):
 
     n_total_subjects = 20
 
+    rra_output_tables = ['actuation_force',
+            'actuation_power',
+            'actuation_speed',
+            'controls',
+            'kinematics_dudt',
+            'kinematics_q',
+            'kinematics_u',
+            'perr',
+            'states']
+
+    cmc_output_tables = ['Actuation_force',
+            'Actuation_power',
+            'Actuation_speed',
+            'Kinematics_dudt',
+            'Kinematics_q',
+            'Kinematics_u',
+            'controls',
+            'pErr',
+            'states']
+
+
     class CopyMode:
         MINIMAL=1
         CONSERVATIVE=2
 
-    def __init__(self, cmc_exec, from_path, subject_idxs, speed_idxs):
+    def __init__(self, cmc_exec, from_path, h5fname, subject_idxs, speed_idxs):
         """
         Parameters
         ----------
@@ -80,6 +106,8 @@ class HamnerXX(Dataman):
             Path to cmc executable.
         from_path : str
             Something that probably ends in 'Hamner_Data'.
+        h5fname : str
+            Name of the pyTables/HDF5 file that data is stored in.
         n_subjects : int
             The number of subjects to copy over. Max is
             HamnerXX.n_total_subjects.
@@ -89,6 +117,10 @@ class HamnerXX(Dataman):
         self.cmc_exec = cmc_exec
         self._copy_mode = self.CopyMode.CONSERVATIVE
         self.from_path = from_path
+
+        # Create h5 file if it doesn't exist.
+        self.h5fname = h5fname
+        h5 = tables.openFile(h5fname, mode='a', title='HamnerXX')
         self.n_subjects = len(subject_idxs)
         if max(subject_idxs) > self.n_total_subjects:
             raise Exception("Greatest subject is {0}; less than {1}.".format(
@@ -96,6 +128,7 @@ class HamnerXX(Dataman):
         self._subjects = []
         for idx in subject_idxs:
             self._subjects += [Subject(self, idx, speed_idxs)]
+        h5.close()
 
     @property
     def copy_mode(self): return self._copy_mode
@@ -197,20 +230,67 @@ class HamnerXX(Dataman):
             subj._modify_cmc_setups(to_path)
 
     def cmc_run_new(self, to_path, name):
-        """Run CMC for all subjects/speeds/cycles specified.
+        """Run CMC for all subjects/speeds/cycles specified. Stores results in
+        a pyTables/HDF5 file.
 
         Parameters
         ----------
         to_path : str
             The to_path to which a working copy was placed.
-        results_dirname : str
+        name : str
             The name of the folder, placed within each 'cycle' folder, in which
             to place simulation results.
 
         """
+        h5 = tables.openFile(self.h5fname, mode='a')
+        invest_group = h5.createGroup(h5.root, name,
+                'Investigation {0}'.format(name))
         for subj in self._subjects:
-            subj._cmc_run_new(to_path, name)
+            subj._cmc_run_new(to_path, name, h5, invest_group)
+        h5.close()
 
+    def store_rra_output(self):
+        """Stores the output of Hamner's RRA simulations into the pyTables/HDF5
+        file. No copying necessary.
+
+        """
+        h5 = tables.openFile(self.h5fname, mode='a')
+        try:
+            base_group = h5.createGroup(h5.root, 'base', "Hamner's original data.")
+        except tables.NodeError as e:
+            base_group = h5.getNode(h5.root, 'base')
+        for subj in self._subjects:
+            subj._store_rra_output(h5, base_group)
+        h5.close()
+
+    def torque_comparison_report(self, run_name, fname, stiffness):
+        """Creates a PDF report comparing, for each cyle, hip moment to
+        associated spring torque.
+
+        Parameters
+        ----------
+        run_name : str
+            The name of the cmc_run from which to extract results.
+        fname : str
+            Name/path of the PDf to generate.
+        stiffness : float
+            Stiffness of torsional spring, in units of N-m/rad.
+
+        """
+        report = swirl.FigureReport(fname)
+
+        report.front_matter("Torque comparison report\\\\"
+                "Hip spring assistive device\\\\"
+                "Neuromuscular Biomechanics Laboratory\\\\"
+                "Stanford University", "Chris Dembia, Carmichael Ong")
+
+        for subj in self._subjects:
+            subj._torque_comparison_report(run_name, report, stiffness)
+
+        report.next_is("\\end{document}")
+
+        pathparts = os.path.split(fname)
+        report.write(pathparts[0], pathparts[1])
 
 class Subject(object):
 
@@ -272,9 +352,23 @@ class Subject(object):
         for speed in self._speeds:
             speed._modify_cmc_setups(to_path)
 
-    def _cmc_run_new(self, to_path, name):
+    def _cmc_run_new(self, to_path, name, h5, invest_group):
+        subj_group = h5.createGroup(invest_group, self.name, self.name)
         for speed in self._speeds:
-            speed._cmc_run_new(to_path, name)
+            speed._cmc_run_new(to_path, name, h5, subj_group)
+
+    def _store_rra_output(self, h5, base_group):
+        try:
+            subj_group = h5.createGroup(base_group, self.name, self.name)
+        except tables.NodeError as e:
+            subj_group = h5.getNode(base_group, self.name)
+        for speed in self._speeds:
+            speed._store_rra_output(h5, subj_group)
+
+    def _torque_comparison_report(self, run_name, report, stiffness):
+        report.next_is("\\section{%s}" % self.name)
+        for speed in self._speeds:
+            speed._torque_comparison_report(run_name, report, stiffness)
 
 
 class Speed(object):
@@ -342,9 +436,85 @@ class Speed(object):
         for cycle in self._cycles:
             cycle._modify_cmc_setups(to_path)
 
-    def _cmc_run_new(self, to_path, name):
+    def _cmc_run_new(self, to_path, name, h5, subj_group):
+        speed_group = h5.createGroup(subj_group, self.name, self.name)
         for cycle in self._cycles:
-            cycle._cmc_run_new(to_path, name)
+            cycle._cmc_run_new(to_path, name, h5, speed_group)
+
+    def _store_rra_output(self, h5, subj_group):
+        try:
+            speed_group = h5.createGroup(subj_group, self.name, self.name)
+        except tables.NodeError as e:
+            speed_group = h5.getNode(subj_group, self.name)
+        for cycle in self._cycles:
+            cycle._store_rra_output(h5, speed_group)
+
+    def _torque_comparison_report(self, run_name, report, stiffness):
+        report.next_is("\\subsection{Speed %i m/s}" % self.speed)
+        h5 = tables.openFile(self.hamner.h5fname)
+        try:
+
+            # Initialize.
+            act_time = np.array([])
+            hip_flexion_moment_left = np.array([])
+            hip_flexion_moment_right = np.array([])
+
+            # Prep for calculating spring torque.
+            kin_time = np.array([])
+            hip_flexion_left = np.array([])
+            hip_flexion_right = np.array([])
+
+            for cycle in self._cycles:
+                # Group with the necessary data.
+                rra = h5.getNode(h5.getNode(h5.getNode(h5.root.base,
+                    self.subject.name), self.name), cycle.name).rra
+
+                # Actual hip flexion moments.
+                # Data is so dense, we only need every 10th point.
+                act_time = np.concatenate((act_time, 
+                    rra.actuation_force.cols.time[::10]))
+                hip_flexion_moment_left = np.concatenate((hip_flexion_moment_left,
+                    rra.actuation_force.cols.hip_flexion_l[::10]))
+                hip_flexion_moment_right = np.concatenate((hip_flexion_moment_right,
+                    rra.actuation_force.cols.hip_flexion_r[::10]))
+
+                # Prep for calculating spring torque.
+                kin_time = np.concatenate((kin_time,
+                    rra.kinematics_q.cols.time[::10]))
+                hip_flexion_left = np.concatenate((hip_flexion_left,
+                    rra.kinematics_q.cols.hip_flexion_l[::10]))
+                hip_flexion_right = np.concatenate((hip_flexion_right,
+                    rra.kinematics_q.cols.hip_flexion_r[::10]))
+
+            # Actual calculation.
+            stiffness_deg = stiffness * np.pi / 180.0
+            spring_torque = stiffness_deg * (hip_flexion_right - hip_flexion_left)
+
+            # Create the plot.
+            report.simple_data_plot(
+                    'xlabel=time (s), ylabel=moment (N-m), no markers, '
+                    'legend pos=outer north east, '
+                    'width=5in',
+                [
+                    'left hip flexion moment',
+                    'left hip flexion moment',
+                    'hip spring'
+                    ],
+                [
+                    act_time, act_time,
+                    kin_time
+                    ],
+                [
+                    hip_flexion_moment_left,
+                    hip_flexion_moment_right,
+                    spring_torque
+                    ])
+        except tables.NoSuchNodeError as e:
+            report.next_is("Data not available.")
+
+        h5.close()
+        for cycle in self._cycles:
+            cycle._torque_comparison_report(run_name, report, stiffness)
 
 
 class Cycle(object):
@@ -458,7 +628,7 @@ class Cycle(object):
                 self.speed.name, self.name, self.hamner.grf_to)
         self._modify_grf_impl(grf_fname)
 
-    def _modify_cmc_setup_impl(self, fname, prepend_path='.',
+    def _modify_cmc_setup_impl(self, fname, run_name=None, prepend_path='.',
             results_dir='results'):
         """Modifies pre-existing CMC setup files. This action depends on
         whether copy mode is set to be MINIMAl or CONSERVATIVE.
@@ -466,6 +636,17 @@ class Cycle(object):
         """
         # Read into an ElementTree for parsing and modification.
         setup = etree.parse(fname)
+
+        # -- name in output files.
+        name = setup.findall('.//CMCTool')
+        # Error check.
+        if len(name) != 1: self._xml_find_raise('CMCTool', fname)
+        # Change the entry.
+        newname = '{0}_{1}_{2}'.format(self.subject.name, self.speed.name,
+                self.name)
+        if run_name != None:
+            newname = '{0}_{1}'.format(run_name, newname)
+        name[0].attrib['name'] = newname
 
         # -- model_file.
         mf = setup.findall('.//model_file')
@@ -572,7 +753,7 @@ class Cycle(object):
         raise Exception("XML tag '{0}' doesn't exist or occurs multiple " +
                 "times in file {1}".format(tag, fname))
 
-    def _cmc_run_new(self, to_path, name):
+    def _cmc_run_new(self, to_path, name, h5, speed_group):
         """Does the actual execution."""
         # TODO belongs in the hipspring package.
 
@@ -584,12 +765,12 @@ class Cycle(object):
         input_dirname = "input_{0}".format(name)
         input_path = os.path.join(cycle_path, input_dirname)
         if os.path.exists(input_path):
-            raise Exception("A run with name '{0}' may already exist. " +
-                    "Not overwriting.".format(
-                name))
-
-        # Create the input directory.
-        os.mkdir(input_path)
+            pass
+            #raise Exception("A run with name '{0}' may already exist. " +
+            #        "Not overwriting.".format(name))
+        else:
+            # Create the input directory.
+            os.mkdir(input_path)
 
         # Copy over the default setup file to the input directory.
         cmc_setup_path = os.path.join(input_path, self.hamner.cmc_setup_to)
@@ -597,23 +778,21 @@ class Cycle(object):
                 cmc_setup_path)
 
         # TODO also need grf.xml in the current directory.
-        shutil.copy2(os.path.join(cycle_path, self.hamner.grf_to),
-                input_path)
+        shutil.copy2(os.path.join(cycle_path, self.hamner.grf_to), input_path)
 
         # Edit the setup file.
         results_dirname = "output_{0}".format(name)
         results_path = os.path.join(cycle_path, results_dirname)
         if os.path.exists(results_path):
-            raise Exception(("A run with name '{0}' may already exist. " +
-                    "Not overwriting.").format(name))
-
-        # Create the input directory.
-        os.mkdir(results_path)
+            pass
+            #raise Exception(("A run with name '{0}' may already exist. " +
+            #        "Not overwriting.").format(name))
 
         # Reflect file movements in the cmc setup file.
         #self._modify_cmc_setup_impl(cmc_setup_path, prepend_path='..',
         #        results_dir=results_dirname)
-        self._modify_cmc_setup_impl(cmc_setup_path, prepend_path=os.path.join(input_path, '..'),
+        self._modify_cmc_setup_impl(cmc_setup_path, name,
+                prepend_path=os.path.join(input_path, '..'),
                 results_dir=results_dirname)
 
         # --- Modifying GRF file's knowledge of where cop.xml is.
@@ -621,11 +800,140 @@ class Cycle(object):
         self._modify_grf_impl(os.path.join(input_path, self.hamner.grf_to),
                 prepend_path='..')
 
+        # Create the results directory.
+        #os.mkdir(results_path)
+
         # Run CMC.
         os.chdir(results_path)
-        # TODO must generalize how we find this executable.
-        os.system("{0} -S {1}".format(self.hamner.cmc_exec,
-            os.path.join('..', input_dirname, self.hamner.cmc_setup_to)))
+        #os.system("{0} -S {1}".format(self.hamner.cmc_exec,
+        #    os.path.join('..', input_dirname, self.hamner.cmc_setup_to)))
+
+        # Parse output and save an HDF5 file.
+        cycle_group = h5.createGroup(speed_group, self.name, self.name)
+        
+        for tablename in self.hamner.cmc_output_tables:
+            filepath = os.path.join(results_path,
+                    '{0}_{1}_{2}_{3}_{4}.sto'.format(name, self.subject.name,
+                        self.speed.name, self.name, tablename))
+            csvread = csv.reader(open(filepath, 'r'), delimiter='\t',
+                    skipinitialspace=True)
+
+            do_parse = False
+            take_header = False
+            for csvrow in csvread:
+                if take_header:
+                    title_row = csvrow
+                    take_header = False
+                    table_cols = dict()
+                    for col in title_row:
+                        table_cols[col.replace('.', '_')] = tables.Float32Col()
+                    table = h5.createTable(cycle_group, tablename, table_cols,
+                            'Output file {0}'.format(tablename))
+                elif do_parse:
+                    tablerow = table.row
+                    for i in range(len(table_cols.keys())):
+                        tablerow[title_row[i].replace('.', '_')] = csvrow[i]
+                    tablerow.append()
+                if csvrow == ['endheader']:
+                    take_header = True
+                    do_parse = True
+            table.flush()
+
+    def _store_rra_output(self, h5, speed_group):
+        try:
+            cycle_group = h5.createGroup(speed_group, self.name, self.name)
+        except tables.NodeError as e:
+            cycle_group = h5.getNode(speed_group, self.name)
+        try:
+            rra_group = h5.createGroup(cycle_group, 'rra', "Hamner's RRA output")
+        except tables.NodeError as e:
+            rra_group = h5.getNode(cycle_group, 'rra')
+
+        output_templ = "%s_run_%i0002_cycle%i_{0}.sto" % (
+                self.subject.name, self.speed.speed, self.cycle_idx)
+        for tablename in self.hamner.rra_output_tables:
+            filepath = os.path.join(self.hamner.from_path,
+                    self.speed.rra_from_dir,
+                    self.speed.cycle_rra_from_dir % (self.speed.speed,
+                        self.cycle_idx),
+                    output_templ.format(tablename))
+            csvread = csv.reader(open(filepath, 'r'), delimiter='\t',
+                    skipinitialspace=True)
+
+            do_parse = False
+            take_header = False
+            for csvrow in csvread:
+                if take_header:
+                    title_row = csvrow
+                    take_header = False
+                    table_cols = dict()
+                    for col in title_row:
+                        table_cols[col.replace('.', '_')] = tables.Float32Col()
+                    try:
+                        table = h5.createTable(rra_group, tablename, table_cols,
+                                'Output file {0}'.format(tablename))
+                    except tables.NodeError as e:
+                        h5.removeNode(rra_group, tablename)
+                        table = h5.createTable(rra_group, tablename, table_cols,
+                                'Output file {0}'.format(tablename))
+
+                elif do_parse:
+                    tablerow = table.row
+                    for i in range(len(table_cols.keys())):
+                        tablerow[title_row[i].replace('.', '_')] = csvrow[i]
+                    tablerow.append()
+                if csvrow == ['endheader']:
+                    take_header = True
+                    do_parse = True
+            table.flush()
+
+    def _torque_comparison_report(self, run_name, report, stiffness):
+        h5 = tables.openFile(self.hamner.h5fname)
+        report.next_is("\\subsubsection{Cycle %i}" % self.cycle_idx)
+        try:
+
+            # Group with the necessary data.
+            rra = h5.getNode(h5.getNode(h5.getNode(h5.root.base,
+                self.subject.name), self.speed.name), self.name).rra
+
+            # Actual hip flexion moments.
+            # Data is so dense, we only need every 10th point.
+            act_time = rra.actuation_force.cols.time[::10]
+            hip_flexion_moment_left = rra.actuation_force.cols.hip_flexion_l[::10]
+            hip_flexion_moment_right = rra.actuation_force.cols.hip_flexion_r[::10]
+
+            # Prep for calculating spring torque.
+            kin_time = rra.kinematics_q.cols.time[::10]
+            hip_flexion_left = rra.kinematics_q.cols.hip_flexion_l[::10]
+            hip_flexion_right = rra.kinematics_q.cols.hip_flexion_r[::10]
+
+            # Actual calculation.
+            stiffness_deg = stiffness * np.pi / 180.0
+            spring_torque = stiffness_deg * (hip_flexion_right - hip_flexion_left)
+
+            # Create the plot.
+            report.simple_data_plot(
+                    'xlabel=time (s), ylabel=moment (N-m), no markers, '
+                    'legend pos=outer north east',
+                [
+                    'left hip flexion moment',
+                    'left hip flexion moment',
+                    'hip spring'
+                    ],
+                [
+                    act_time, act_time,
+                    kin_time
+                    ],
+                [
+                    hip_flexion_moment_left,
+                    hip_flexion_moment_right,
+                    spring_torque
+                    ])
+        except tables.NoSuchNodeError as e:
+            report.next_is("Data not available.")
+        h5.close()
+
+
 
 
 
