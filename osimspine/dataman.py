@@ -495,6 +495,7 @@ class Speed(object):
                     'xlabel=time (s), ylabel=moment (N-m), no markers, '
                     'legend pos=outer north east, '
                     'width=5in',
+                    'height=2in',
                 [
                     'left hip flexion moment',
                     'left hip flexion moment',
