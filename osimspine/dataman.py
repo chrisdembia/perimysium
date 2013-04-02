@@ -8,6 +8,7 @@
 # TODO allow specifying which cycles to manage.
 
 import csv
+import difflib
 import shutil
 import os
 import abc
@@ -19,6 +20,203 @@ import numpy as np
 
 from cherithon import log
 import swirl
+
+def dock_output_in_pytable(h5file, output_path, group_path):
+    """Docks an OpenSim output, via a table for each STO file, in a pyTable
+    file.  It's assumed the tables don't already exist in the last group
+    specified.
+
+    Parameters
+    ----------
+    h5file : tables.File
+        pyTables File object, opened using tables.openFile(...). Does NOT close
+        the file.
+    output_path : str
+        File path in which the OpenSim output is located (e.g. .STO files).
+        Only .STO files are loaded, and it is assumed that all .STO files in
+        this directory are from one run. That is, they have the same prefix,
+        which is the name of the run.
+    group_path list of str's
+        The group tree hierarchy specifying where the output is to be docked in
+        the h5file.
+
+    Returns
+    -------
+    current_group : tables.Group
+        The pyTables group in which the output has been stored.
+
+    """
+    # If output_path doesn't exist, can't do anything.
+    if not os.path.exists(output_path):
+        raise Exception("Output path {0:r} doesn't exist.".format(output_path))
+
+    # -- Make all necessary groups to get to where we're going.
+    current_group = _blaze_group_trail(h5file, group_path)
+
+    # -- Determine which files we want to use to create tables.
+
+    # Make a list of all files in this directory ending is 'sto'.
+    storage_files = [f for f in os.listdir(output_path) if f.endswith('.sto')]
+
+    # If there are no storage files, the user probably gave a bad path.
+    if len(storage_files) == 0:
+        raise Exception("No .STO files found in {0}.".format(output_path))
+
+    # If there's only one, usually the states file, forget about this output.
+    if len(storage_files) == 1:
+        raise Exception("Only one .STO file found: {0}.".format(
+            storage_files[0]))
+
+
+    # Get the length of the common prefix of these files.
+    n_shared = _length_of_shared_prefix(storage_files)
+
+    # -- Add tables in the current group.
+
+    # Loop through all storage files.
+    for f in storage_files:
+
+        # Path to the data file.
+        filepath = os.path.join(output_path, f)
+
+        # Get name of the table: after the run name and before the file ext.
+        table_name = os.path.splitext(f)[0][n_shared:]
+
+        # Create and populate a table with the data from this file.
+        _populate_table(h5file, current_group, table_name, filepath)
+
+    return current_group
+
+def _blaze_group_trail(h5file, group_path):
+
+    # Start at the root.
+    current_group = h5file.root
+
+    # Loop through each group in the path the user provided.
+    for next_group_name in group_path:
+
+        # This group has not been created yet.
+        if not hasattr(current_group, next_group_name):
+
+            # Create the group.
+            h5file.createGroup(current_group, next_group_name)
+
+        # Set this group as the current group.
+        current_group = getattr(current_group, next_group_name)
+
+    # Return this leaf group.
+    return current_group
+
+
+def _populate_table(h5file, group, table_name, filepath):
+    """Populates a pyTables file with a table, using data from CSV file at
+    filepath.
+
+    Parameters
+    ----------
+    h5file : tables.File
+        The file to which the table is to be added.
+    group : tables.Group
+        The group in the file to which the table is to be added.
+    table_name : str
+        Name of the table to be added.
+    filepath : str
+        Path to the data file containing data to put in this table.
+
+    Returns
+    -------
+    table : tables.Table
+        The table that has just been created.
+
+    """
+    # Open data file.
+    csvread = csv.reader(open(filepath, 'r'), delimiter='\t',
+            skipinitialspace=True)
+
+    # - Parse the data as a CSV file.
+    do_parse = False
+    take_header = False
+
+    # For each row in the CSV file.
+    for csvrow in csvread:
+
+        # If this is the header line.
+        if take_header:
+
+            # Save this row for later; we'll need it.
+            title_row = csvrow
+
+            # Can't have periods in table column names in pyTables.
+            for i in range(len(title_row)):
+                title_row[i] = title_row[i].replace('.', '_')
+
+            take_header = False
+
+            # Grab table column names.
+            table_cols = dict()
+            for col in title_row: 
+                # Checking if the column is empty. This is a
+                # once-in-a-blue-moon bug fix as a result of inconsistency in
+                # Hamner's files. See CMC results for subject 2, speed 2 m/s,
+                # cycle 1, states_OG.sto file.
+                if col != '':
+                    table_cols[col] = tables.Float32Col()
+
+            # Create pyTables table.
+            table = h5file.createTable(group, table_name, table_cols,
+                    'Output file {0}'.format(table_name))
+
+        # If this is a data row.
+        elif do_parse:
+
+            # For each column in the data file in this row.
+            for i in range(len(table_cols.keys())):
+
+                # Append the data into the table.
+                table.row[title_row[i]] = csvrow[i]
+
+            # Tell pyTables to append this data to the table.
+            table.row.append()
+
+        # The header is over.
+        if csvrow == ['endheader']:
+            take_header = True
+            do_parse = True
+
+    # Save (?).
+    table.flush()
+
+    # Give access to it.
+    return table
+
+def _length_of_shared_prefix(strings):
+    """Determines, from a list of strings, the length of the string that is
+    shared at the beginning of all strings.
+
+    Parameters
+    ----------
+    strings : list of str's
+        List of strings to compare.
+
+    Returns
+    -------
+    n_shared : int
+        The number of characters shared at the beginning of all strings.
+
+    """
+    # Initialize the number of shared caracters to something equal to or
+    # greater than what it will finally be.
+    n_shared = len(strings[0])
+    for i_string in range(1, len(strings)):
+
+        # Compare the 0th and 1st strings.
+        diff = difflib.SequenceMatcher(a=strings[0], b=strings[i_string])
+
+        # The 3rd element of the first element of matching blocks tells
+        # how many characters these strings share.
+        n_shared = min(n_shared, diff.get_matching_blocks()[0][2])
+
+    return n_shared
 
 class Log(log.Log):
     """ TODO """
@@ -488,18 +686,18 @@ class Speed(object):
 
             # Actual calculation.
             stiffness_deg = stiffness * np.pi / 180.0
-            spring_torque = stiffness_deg * (hip_flexion_right - hip_flexion_left)
+            spring_torque = -stiffness_deg * (hip_flexion_right - hip_flexion_left)
 
             # Create the plot.
             report.simple_data_plot(
                     'xlabel=time (s), ylabel=moment (N-m), no markers, '
                     'legend pos=outer north east, '
-                    'width=5in',
+                    'width=6in, '
                     'height=2in',
                 [
-                    'left hip flexion moment',
-                    'left hip flexion moment',
-                    'hip spring'
+                    'left hip flexion',
+                    'right hip flexion',
+                    'associated hip spring'
                     ],
                 [
                     act_time, act_time,
@@ -861,32 +1059,30 @@ class Cycle(object):
             csvread = csv.reader(open(filepath, 'r'), delimiter='\t',
                     skipinitialspace=True)
 
-            do_parse = False
-            take_header = False
-            for csvrow in csvread:
-                if take_header:
-                    title_row = csvrow
-                    take_header = False
-                    table_cols = dict()
-                    for col in title_row:
-                        table_cols[col.replace('.', '_')] = tables.Float32Col()
-                    try:
-                        table = h5.createTable(rra_group, tablename, table_cols,
-                                'Output file {0}'.format(tablename))
-                    except tables.NodeError as e:
-                        h5.removeNode(rra_group, tablename)
-                        table = h5.createTable(rra_group, tablename, table_cols,
-                                'Output file {0}'.format(tablename))
-
-                elif do_parse:
-                    tablerow = table.row
-                    for i in range(len(table_cols.keys())):
-                        tablerow[title_row[i].replace('.', '_')] = csvrow[i]
-                    tablerow.append()
-                if csvrow == ['endheader']:
-                    take_header = True
-                    do_parse = True
-            table.flush()
+            try:
+                do_parse = False
+                take_header = False
+                for csvrow in csvread:
+                    if take_header:
+                        title_row = csvrow
+                        take_header = False
+                        table_cols = dict()
+                        for col in title_row:
+                            table_cols[col.replace('.', '_')] = tables.Float32Col()
+                            table = h5.createTable(rra_group, tablename, table_cols,
+                                    'Output file {0}'.format(tablename))
+                    elif do_parse:
+                        tablerow = table.row
+                        for i in range(len(table_cols.keys())):
+                            tablerow[title_row[i].replace('.', '_')] = csvrow[i]
+                        tablerow.append()
+                    if csvrow == ['endheader']:
+                        take_header = True
+                        do_parse = True
+                table.flush()
+            except tables.NodeError as e:
+                # TODO If the table already exists, don't overwrite it.
+                pass
 
     def _torque_comparison_report(self, run_name, report, stiffness):
         h5 = tables.openFile(self.hamner.h5fname)
@@ -910,16 +1106,16 @@ class Cycle(object):
 
             # Actual calculation.
             stiffness_deg = stiffness * np.pi / 180.0
-            spring_torque = stiffness_deg * (hip_flexion_right - hip_flexion_left)
+            spring_torque = -stiffness_deg * (hip_flexion_right - hip_flexion_left)
 
             # Create the plot.
             report.simple_data_plot(
                     'xlabel=time (s), ylabel=moment (N-m), no markers, '
                     'legend pos=outer north east',
                 [
-                    'left hip flexion moment',
-                    'left hip flexion moment',
-                    'hip spring'
+                    'left hip flexion',
+                    'right hip flexion',
+                    'associated hip spring'
                     ],
                 [
                     act_time, act_time,
