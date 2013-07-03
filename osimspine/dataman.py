@@ -21,7 +21,7 @@ import numpy as np
 from cherithon import log
 import swirl
 
-def dock_output_in_pytable(h5file, output_path, group_path):
+def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False):
     """Docks an OpenSim output, via a table for each STO file, in a pyTable
     file.  It's assumed the tables don't already exist in the last group
     specified.
@@ -36,9 +36,13 @@ def dock_output_in_pytable(h5file, output_path, group_path):
         Only .STO files are loaded, and it is assumed that all .STO files in
         this directory are from one run. That is, they have the same prefix,
         which is the name of the run.
-    group_path list of str's
+    group_path : list of str's
         The group tree hierarchy specifying where the output is to be docked in
         the h5file.
+    allow_one : bool, optional (default: False)
+        Allows the loading of just one STO file. Otherwise, an exception is
+        thrown. It is common that if only one STO file exists, it is a partial
+        states file and means that the simulation did not complete.
 
     Returns
     -------
@@ -63,7 +67,7 @@ def dock_output_in_pytable(h5file, output_path, group_path):
         raise Exception("No .STO files found in {0}.".format(output_path))
 
     # If there's only one, usually the states file, forget about this output.
-    if len(storage_files) == 1:
+    if (not allow_one) and len(storage_files) == 1:
         raise Exception("Only one .STO file found: {0}.".format(
             storage_files[0]))
 
@@ -80,7 +84,10 @@ def dock_output_in_pytable(h5file, output_path, group_path):
         filepath = os.path.join(output_path, f)
 
         # Get name of the table: after the run name and before the file ext.
-        table_name = os.path.splitext(f)[0][n_shared:]
+        if len(storage_files) == 1:
+            table_name = os.path.splitext(f)[0]
+        else:
+            table_name = os.path.splitext(f)[0][n_shared:]
 
         # Create and populate a table with the data from this file.
         _populate_table(h5file, current_group, table_name, filepath)
