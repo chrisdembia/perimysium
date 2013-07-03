@@ -807,6 +807,118 @@ def verify_reserves(actforce_table):
     print 'Reserve torques: %s with maximum %f N-m' % (evaluation, max_torque)
 
 
+def plot_activations(sim_group):
+    """Plots muscle activations using matplotlib.
+
+    Parameters
+    ----------
+    sim_grup : tables.Group
+        A pyTables group holding tables docked from a simulation (e.g., CMC).
+
+    """
+
+
+def shift_data_to_cycle(
+        arbitrary_cycle_start_time, arbitrary_cycle_end_time,
+        new_cycle_start_time, time, ordinate):
+    """
+    Takes data (ordinate) that is (1) a function of time and (2) cyclic, and
+    returns data that can be plotted so that the data starts at the desired
+    part of the cycle.
+
+    Used to shift data to the desired part of a gait cycle, for plotting
+    purposes. Data may be recorded from an arbitrary part of the gait cycle,
+    but we might desire to plot the data starting at a particular part of the
+    gait cycle (e.g., right foot strike).
+
+    The first three parameters below not need exactly match times in the `time`
+    array.
+
+    Parameters
+    ----------
+    arbitrary_cycle_start_time : float
+        Choose a complete cycle/period from the original data that you want to
+        use in the resulting data. What is the initial time in this period?
+    arbitrary_cycle_end_time : float
+        See above; what is the final time in this period?
+    new_cycle_start_time : float
+        The time at which the shifted data should start. Note that the initial
+        time in the shifted time array will regardlessly be 0.0, not
+        new_cycle_start_time.
+    time : np.array
+        An array of times that must correspond with ordinate values (see next),
+        and must contain arbitrary_cycle_start_time and
+        arbitrary_cycle_end_time.
+    ordinate : np.array
+        The cyclic function of time, values corresponding to the times given.
+
+    Returns
+    -------
+    shifted_time : np.array
+        Same size as time parameter above, but its initial value is 0 and its
+        final value is the duration of the cycle (arbitrary_cycle_end_time -
+        arbitrary_cycle_start_time).
+    shifted_ordinate : np.array
+        Same ordinate values as before, but they are shifted so that the first
+        value is ordinate[{index of arbitrary_cycle_start_time}] and the last
+        value is ordinate[{index of arbitrary_cycle_start_time} - 1].
+
+    Examples
+    --------
+    Observe that we do not require a constant interval for the time:
+
+    >>> ordinate = np.array([2, 1, 2, 3, 4, 5, 6])
+    >>> time = np.array([0.5, 1.0, 1.2, 1.35, 1.4, 1.5, 1.8])
+    >>> arbitrary_cycle_start_time = 1.0
+    >>> arbitrary_cycle_end_time = 1.5
+    >>> new_cycle_start_time = 1.35
+    >>> shifted_time, shifted_ordinate = shift_data_to_cycle(
+    ...     arbitrary_cycle_start_time, arbitrary_cycle_end_time,
+    ...     new_cycle_start_time,
+    ...     time, ordinate)
+    >>> shifted_time
+    array([ 0.  ,  0.05,  0.15,  0.3 ,  0.5 ])
+    >>> shifted_ordinate
+    array([3, 4, 5, 1, 2])
+
+    In order to ensure the entire duration of the cycle is kept the same,
+    the time interval between the original times "1.5" and "1.0" is 0.1, which
+    is the time gap between the original times "1.2" and "1.3"; the time
+    between 1.2 and 1.3 is lost, and so we retain it in the place where we
+    introduce a new gap (between "1.5" and "1.0").
+
+    """
+    old_start_index = nearest_index(time, arbitrary_cycle_start_time)
+    old_end_index = nearest_index(time, arbitrary_cycle_end_time)
+
+    new_start_index = nearest_index(time, new_cycle_start_time)
+
+    # Interval of time in
+    # [arbitrary_cycle_start_time, arbitrary_cycle_end_time]that is 'lost' in
+    # doing the shifting.
+    lost_time_gap = time[new_start_index] - time[new_start_index - 1]
+
+    # Starts at 0.0.
+    first_portion_of_new_time = \
+            time[new_start_index:old_end_index+1] - new_cycle_start_time
+
+    # Second portion: (1) shift to 0, then move to the right of first portion.
+    second_portion_to_zero = \
+            time[old_start_index:new_start_index] - arbitrary_cycle_start_time
+    second_portion_of_new_time = (second_portion_to_zero +
+            first_portion_of_new_time[-1] + lost_time_gap)
+
+    shifted_time = np.concatenate(
+            (first_portion_of_new_time, second_portion_of_new_time))
+
+    # Shift the ordinate.
+    shifted_ordinate = np.concatenate(
+            (ordinate[new_start_index:old_end_index+1],
+                ordinate[old_start_index:new_start_index]))
+
+    return shifted_time, shifted_ordinate
+
+
 def plot(column):
     """Plots a column of a pyTables table, against time.
 
