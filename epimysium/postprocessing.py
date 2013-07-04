@@ -256,7 +256,7 @@ def plot_simulation_verification(sim_group, **kwargs):
 
     Parameters
     ----------
-    sim_grup : tables.Group
+    sim_group : tables.Group
         A pyTables group holding tables docked from a simulation (e.g., CMC).
     n_max : int, optional
         Plots the n_max maximum columns. By default, all columns are plotted.
@@ -667,7 +667,7 @@ def verify_simulation(sim_group):
 
     Parameters
     ----------
-    sim_grup : tables.Group
+    sim_group : tables.Group
         A pyTables group holding tables docked from a simulation (e.g., CMC).
 
     """
@@ -807,15 +807,117 @@ def verify_reserves(actforce_table):
     print 'Reserve torques: %s with maximum %f N-m' % (evaluation, max_torque)
 
 
-def plot_activations(sim_group):
+def plot_activations(sim, muscles=None, interval=10, subplot_width=4,
+        shift_data=None, percent_gait_cycle=False,
+        draw_vertical_line=False):
     """Plots muscle activations using matplotlib.
 
     Parameters
     ----------
-    sim_grup : tables.Group
+    sim : tables.Group, or dict of tables.Group's
         A pyTables group holding tables docked from a simulation (e.g., CMC).
+    muscles : list of str's, optional
+        The names of muscle for which to plot activations. By default, plots
+        activations for all muscles.
+    interval : int
+        Interval of data points to skip/include in the plot (states files have
+        way too many data points for plots).
+    subplot_width : int, optional (default: 4)
+        The width of the figure in number of subplots. If the user requests a
+        figure for less muscles than subplot_width, then the subplots are
+        stacked in one column (subplot_width is effectively 1).
+    shift_data : dict, optional
+        To shift data to the gait cycle, provide a dict with the first 3
+        arguments of :py:meth:`epimysium.postprocessing.shift_data_to_cycle`,
+        as a dict, with keys that are the names of those 3 arguments (
+        arbitrary_cycle_start_time, arbitrary_cycle_end_time,
+        new_cycle_start_time)
+    percent_gait_cycle : bool, optional (default: False)
+        Convert x value from time to percent gait cycle. Really, percent of
+        time range provided.
+    draw_vertical_line : bool, optional (default: None)
+        Draw a vertical line on all plots by setting this argument to the time
+        at which the vertical line is desired. If `percent_gait_cycle` is True,
+        then the value of this argument must be in percent gait cycle.
+
+    Examples
+    --------
+    Simple:
+
+        >>> plot_activations(h5file, sim)
+
+    Multiple simulations:
+
+        >>> plot_activations(h5file, {'simA': simA, 'simB': simB})
+
+    Specifying the muscles:
+
+        >>> plot_activations(h5file, sim, ['soleus_r', 'tib_ant_r'])
+
+    Shifting the data:
+
+        >>> plot_activations(h5file, sim,
+        ...     shift_data={'arbitrary_cycle_start_time': 0.1,
+        ...     'arbitrary_cycle_end_time': 0.9, 'new_cycle_start_time': 0.3})
 
     """
+    # TODO average both limbs.
+    if muscles == None:
+        muscles = [m
+                for m in sim_group.states.colnames
+                if m.endswith('activation')]
+    else:
+        temp_muscles = [m + '_activation' for m in muscles]
+        muscles = temp_muscles
+
+    n_muscles = len(muscles)
+
+    if n_muscles >= subplot_width:
+        n_plots_wide = subplot_width
+        n_plots_tall = np.floor(n_muscles / subplot_width)
+        if n_muscles / float(subplot_width) > n_plots_tall:
+            n_plots_tall += 1
+    else:
+        n_plots_wide = 1
+        n_plots_tall = n_muscles
+
+    pl.figure(figsize=(4 * n_plots_wide, 4 * n_plots_tall))
+
+    # Used below.
+    def plot_single_sim_activation(sim, muscle, **kwargs):
+        x = sim.states.cols.time[::interval]
+        y = sim.states.col(muscle)[::interval]
+        if shift_data != None:
+            x, y = shift_data_to_cycle(
+                    shift_data['arbitrary_cycle_start_time'],
+                    shift_data['arbitrary_cycle_end_time'],
+                    shift_data['new_cycle_start_time'], x, y)
+        if percent_gait_cycle:
+            x = (x - x[0]) / (x[-1] - x[0]) * 100
+        pl.plot(x, y, 'k', **kwargs)
+        pl.ylim(ymin=0, ymax=1)
+        pl.xlim(xmin=x[0], xmax=x[-1])
+        pl.title(muscle.replace('_activation', ''))
+        if percent_gait_cycle:
+            pl.xlabel('percent gait cycle')
+        else:
+            pl.xlabel('time (s)')
+
+    for i, muscle in enumerate(muscles):
+        pl.subplot(n_plots_tall, n_plots_wide, i+1)
+        if type(sim) == dict:
+            # Multiple simulations to compare.
+            i_sim = 0
+            for k, v in sim.items():
+                i_sim += 1
+                plot_single_sim_activation(v, muscle, lw=i_sim)
+            pl.legend(sim.keys())
+        else:
+            # Just one simulation.
+            plot_single_sim_activation(sim, muscle)
+        if draw_vertical_line != None:
+            pl.plot(draw_vertical_line * np.array([1, 1]), [0, 1],
+                    color=(0.5, 0.5, 0.5))
 
 
 def shift_data_to_cycle(
@@ -827,12 +929,18 @@ def shift_data_to_cycle(
     part of the cycle.
 
     Used to shift data to the desired part of a gait cycle, for plotting
-    purposes. Data may be recorded from an arbitrary part of the gait cycle,
-    but we might desire to plot the data starting at a particular part of the
-    gait cycle (e.g., right foot strike).
+    purposes.  Data may be recorded from an arbitrary part
+    of the gait cycle, but we might desire to plot the data starting at a
+    particular part of the gait cycle (e.g., right foot strike).
+    Another example use case is that one might have data for both right and
+    left limbs, but wish to plot them together, and thus must shift data for
+    one of the limbs by 50% of the gait cycle.
 
     The first three parameters below not need exactly match times in the `time`
     array.
+
+    This method can also be used just to truncate data, by setting
+    `new_cycle_start_time` to be the same as `arbitrary_cycle_start_time`.
 
     Parameters
     ----------
@@ -867,19 +975,19 @@ def shift_data_to_cycle(
     --------
     Observe that we do not require a constant interval for the time:
 
-    >>> ordinate = np.array([2, 1, 2, 3, 4, 5, 6])
-    >>> time = np.array([0.5, 1.0, 1.2, 1.35, 1.4, 1.5, 1.8])
-    >>> arbitrary_cycle_start_time = 1.0
-    >>> arbitrary_cycle_end_time = 1.5
-    >>> new_cycle_start_time = 1.35
-    >>> shifted_time, shifted_ordinate = shift_data_to_cycle(
-    ...     arbitrary_cycle_start_time, arbitrary_cycle_end_time,
-    ...     new_cycle_start_time,
-    ...     time, ordinate)
-    >>> shifted_time
-    array([ 0.  ,  0.05,  0.15,  0.3 ,  0.5 ])
-    >>> shifted_ordinate
-    array([3, 4, 5, 1, 2])
+        >>> ordinate = np.array([2, 1, 2, 3, 4, 5, 6])
+        >>> time = np.array([0.5, 1.0, 1.2, 1.35, 1.4, 1.5, 1.8])
+        >>> arbitrary_cycle_start_time = 1.0
+        >>> arbitrary_cycle_end_time = 1.5
+        >>> new_cycle_start_time = 1.35
+        >>> shifted_time, shifted_ordinate = shift_data_to_cycle(
+                ...     arbitrary_cycle_start_time, arbitrary_cycle_end_time,
+                ...     new_cycle_start_time,
+                ...     time, ordinate)
+        >>> shifted_time
+        array([ 0.  ,  0.05,  0.15,  0.3 ,  0.5 ])
+        >>> shifted_ordinate
+        array([3, 4, 5, 1, 2])
 
     In order to ensure the entire duration of the cycle is kept the same,
     the time interval between the original times "1.5" and "1.0" is 0.1, which
@@ -926,6 +1034,3 @@ def plot(column):
     pl.plot(column.table.cols.time, column, label=column.name)
     pl.xlabel('time (s)')
     pl.title(column.name)
-
-# Detect gait landmarks given GRF data.
-
