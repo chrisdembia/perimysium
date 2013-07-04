@@ -21,6 +21,74 @@ import numpy as np
 from cherithon import log
 import swirl
 
+def gait_landmarks_from_grf(mot_file,
+        right_grfy_column_name='ground_force_vy',
+        left_grfy_column_name='1_ground_force_vy',
+        threshold = 1e-5):
+    """
+    Obtain gait landmarks (right and left foot strike & toe-off) from ground
+    reaction force (GRF) time series data.
+
+    Parameters
+    ----------
+    mot_file : str
+        Name of *.mot (OpenSim Storage) file containing GRF data.
+    right_grfy_column_name : str, optional
+        Name of column in `mot_file` containing the y (vertical) component of
+        GRF data for the right leg.
+    left_grfy_column_name : str, optional
+        Same as above, but for the left leg.
+    threshold : float, optional
+        Below this value, the force is considered to be zero (and the
+        corresponding foot is not touching the ground).
+
+    Returns
+    -------
+    right_foot_strikes : list of float's
+        All times at which right_grfy is non-zero and it was 0 at the preceding
+        time index.
+    left_foot_strikes : list of float's
+        Same as above, but for the left foot.
+    right_toe_offs : list of float's
+        All times at which left_grfy is 0 and it was non-zero at the preceding
+        time index.
+    left_toe_offs : list of float's
+        Same as above, but for the left foot.
+
+    """
+    data = np.genfromtxt(mot_file, names=True, skip_header=6)
+    
+    time = data['time']
+    right_grfy = data[right_grfy_column_name]
+    left_grfy = data[left_grfy_column_name]
+
+    def zero(number):
+        return abs(number) < threshold
+
+    def birth_times(data):
+        births = list()
+        for i in range(1, len(data)):
+            # 'Skip' first value because we're going to peak back at previous
+            # index.
+            if zero(data[i - 1]) and (not zero(data[i])):
+                births.append(time[i])
+        return births
+
+    def death_times(data):
+        deaths = list()
+        for i in range(1, len(data)):
+            if (not zero(data[i - 1])) and zero(data[i]):
+                deaths.append(time[i])
+        return deaths
+
+    right_foot_strikes = birth_times(right_grfy)
+    left_foot_strikes = birth_times(left_grfy)
+    right_toe_offs = death_times(right_grfy)
+    left_toe_offs = death_times(left_grfy)
+
+    return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
+
+
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False):
     """Docks an OpenSim output, via a table for each STO file, in a pyTable
     file.  It's assumed the tables don't already exist in the last group
