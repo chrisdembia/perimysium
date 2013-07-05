@@ -21,10 +21,48 @@ import numpy as np
 from cherithon import log
 import swirl
 
+def storage2numpy(storage_file):
+    """Returns the data from a storage file in a numpy format. Skips all lines
+    up to and including the line that says 'endheader'.
+
+    Parameters
+    ----------
+    storage_file : str
+        Path to an OpenSim Storage (.sto) file.
+
+    Returns
+    -------
+    data : np.ndarry (or numpy structure array or something?)
+        Contains all columns from the storage file, indexable by column name.
+
+    Examples
+    --------
+    Columns from the storage file can be obtained as follows:
+    
+        >>> data = storage2numpy('<filename>')
+        >>> data['ground_force_vy']
+
+    """
+    # What's the line number of the line containing 'endheader'?
+    f = open(storage_file, 'r')
+
+    for i, line in enumerate(f):
+        if line.count('endheader') != 0:
+            line_number_of_line_containing_endheader = i + 1
+            break
+    f.close()
+
+    # With this information, go get the data.
+    data = np.genfromtxt(storage_file, names=True,
+            skip_header=line_number_of_line_containing_endheader)
+
+    return data
+
+
 def gait_landmarks_from_grf(mot_file,
         right_grfy_column_name='ground_force_vy',
         left_grfy_column_name='1_ground_force_vy',
-        threshold = 1e-5):
+        threshold=1e-5):
     """
     Obtain gait landmarks (right and left foot strike & toe-off) from ground
     reaction force (GRF) time series data.

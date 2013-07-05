@@ -8,5 +8,5 @@ setup(
         packages=['epimysium'],
         url='http://github.com/fitze/epimysium',
         license='LICENSE.txt',
-        long_description=open('README.md').read(),
+        long_description=open('README.txt').read(),
         )
