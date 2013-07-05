@@ -148,7 +148,7 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         
         # Add the probe to the model and provide a name.
         model.addProbe(thisMuscleProbe)
-        thisMuscleProbe.setName("metabolic_power_"+thisMuscle.getName())
+        thisMuscleProbe.setName("metabolic_power_" + thisMuscle.getName())
         
         # Get the slow-twitch ratio from the data we read earlier.
         slowTwitchRatio = defaultTwitchRatio
