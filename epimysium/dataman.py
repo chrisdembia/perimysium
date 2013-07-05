@@ -94,7 +94,7 @@ def gait_landmarks_from_grf(mot_file,
         Same as above, but for the left foot.
 
     """
-    data = np.genfromtxt(mot_file, names=True, skip_header=6)
+    data = storage2numpy(mot_file)
     
     time = data['time']
     right_grfy = data[right_grfy_column_name]
