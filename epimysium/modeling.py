@@ -103,11 +103,11 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         shorteningRateOn,
         basalRateOn,
         mechanicalWorkRateOn)
-    wholeBodyProbe.setOperation("integrate")
+    wholeBodyProbe.setOperation("value")
     
     # Add the probe to the model and provide a name.
     model.addProbe(wholeBodyProbe)
-    wholeBodyProbe.setName("metabolic_energy_whole_body")
+    wholeBodyProbe.setName("metabolic_power")
     
     # Loop through all muscles, adding parameters for each into the whole-body
     # probe.
@@ -129,34 +129,3 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         wholeBodyProbe.addMuscle(thisMuscle.getName(),
                                  slowTwitchRatio,
                                  -1)
-    
-    # Individual-muscle probes
-    # ------------------------
-    # Define a probe for each individual muscle that will report metabolic
-    # power at each point in the simulation. This loop has been extracted from
-    # the loop above so that the whole-body probe appears first in the
-    # ProbeReporter output file (for convenience).
-    for iMuscle in range(model.getMuscles().getSize()):
-        thisMuscle = model.getMuscles().get(iMuscle)
-        
-        thisMuscleProbe = osm.Umberger2010MuscleMetabolicsProbe(
-            activationMaintenanceRateOn,
-            shorteningRateOn,
-            basalRateOn,
-            mechanicalWorkRateOn)
-        thisMuscleProbe.setOperation("value")
-        
-        # Add the probe to the model and provide a name.
-        model.addProbe(thisMuscleProbe)
-        thisMuscleProbe.setName("metabolic_power_" + thisMuscle.getName())
-        
-        # Get the slow-twitch ratio from the data we read earlier.
-        slowTwitchRatio = defaultTwitchRatio
-        for key, val in twitchRatios.items():
-            if thisMuscle.getName().startswith(key) and val != -1:
-                slowTwitchRatio = val
-        
-        # Add the muscle to its power probe.
-        thisMuscleProbe.addMuscle(thisMuscle.getName(),
-                                  slowTwitchRatio,
-                                  -1)

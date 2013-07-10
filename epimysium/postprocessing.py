@@ -54,12 +54,26 @@ def avg_sum_of_squared_activations(states_table):
     integral = np.trapz(sum_of_squared_activations(states_table), x=time)
     return integral / duration
 
-def change_in_activations_between_two_simulations(states_table):
+def change_in_activations_between_two_simulations(states_table1, states_table2,
+        init_time=None, final_time=None):
+    """Returns a dict providing, for each muscle in the two simulations, the
+    difference in the activation integrated over the duration of the
+    simulations specified.
+
+    UNIMPLEMENTED
+
+    Parameters
+    ----------
+
+    Ensure that both simulations have the same muscles.
+
     """
-    """
+    # TODO
     pass
 
-def avg(time, value, init_time=None, final_time=None):
+
+
+def avg(time, value, init_time=None, final_time=None, interval=None):
     """Finds the average value of `value` in time, using np.trapz.
 
     Parameters
@@ -74,6 +88,9 @@ def avg(time, value, init_time=None, final_time=None):
     final_time : float, optional
         The upper bound on the integral, in units of time (probably seconds).
         By default, the last time in the series is used.
+    interval : int, optional
+        Interval of data points to skip/include in the plot (states files have
+        way too many data points for plots). By default, no points are skipped.
 
     Returns
     -------
@@ -90,9 +107,8 @@ def avg(time, value, init_time=None, final_time=None):
     else:
         final_idx = np.abs(time - final_time).argmin()
 
-    return np.trapz(
-            value[init_idx:final_idx],
-            x=time[init_idx:final_idx])
+    return np.trapz(value[init_idx:final_idx:interval],
+            x=time[init_idx:final_idx:interval])
 
 def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
     """Returns sort and argsort for all columns given. The quantity
@@ -114,7 +130,7 @@ def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
         used.
     exclude : list of str's, optional
         The names of columns to exclude from the sorting (e.g.,
-        ['umb_val_wholebody']).
+        ['umb_val_wholebody']). Automatically excludes 'time' column.
 
     Returns
     -------
@@ -169,7 +185,7 @@ def sorted_avg(table, init_time=None, final_time=None, exclude=None):
         By default, the last time in the series is used.
     exclude : list of str's, optional
         The names of columns to exclude from the sorting (e.g.,
-        ['umb_val_wholebody']).
+        ['umb_val_wholebody']). Automatically excludes 'time' column.
 
     Returns
     -------
@@ -199,7 +215,8 @@ def sorted_avg(table, init_time=None, final_time=None, exclude=None):
 
 
 def sorted_avg_difference(table1, table2,
-        init_time=None, final_time=None, exclude=None):
+        init_time=None, final_time=None, exclude=None, include_only=None,
+        interval=None):
     """Returns sort and argsort for a difference in average value of each
     column between two tables (table1 minus table2). Both tables must have the
     same columns.
@@ -220,7 +237,13 @@ def sorted_avg_difference(table1, table2,
         By default, the last time in the series is used.
     exclude : list of str's, optional
         The names of columns to exclude from the sorting (e.g.,
-        ['umb_val_wholebody']).
+        ['umb_val_wholebody']). Automatically excludes 'time' column.
+    include_only : str, optional
+        A substring that a column name must contain to be included in the
+        output.
+    interval : int, optional
+        Interval of data points to skip/include in the plot (states files have
+        way too many data points for plots). By default, no points are skipped.
 
     Returns
     -------
@@ -238,11 +261,14 @@ def sorted_avg_difference(table1, table2,
     diff_avgs = dict()
 
     for coln in table1.colnames:
-        if coln != 'time' and (exclude == None or not coln in exclude):
+        if (coln != 'time' and (exclude == None or not coln in exclude) and
+                (include_only == None or coln.count(include_only) != 0)):
             diff_avgs[coln] = (
-                    avg(table1.cols.time, table1.col(coln),
+                    avg(table1.cols.time[::interval],
+                        table1.col(coln)[::interval],
                         init_time, final_time) - 
-                    avg(table2.cols.time, table2.col(coln),
+                    avg(table2.cols.time[::interval],
+                        table2.col(coln)[::interval],
                         init_time, final_time))
 
     sorted_vals = np.sort(diff_avgs.values())
@@ -270,9 +296,18 @@ def plot_simulation_verification(sim_group, **kwargs):
         Show a legend for all columns plotted. By default, False.
 
     """
-    plot_kinematics_verification(sim_group.pErr, **kwargs)
-    plot_residuals_verification(sim_group.Actuation_force, **kwargs)
-    plot_reserves_verification(sim_group.Actuation_force, **kwargs)
+    if 'show_legend' in kwargs and kwargs['show_legend']:
+        plot_kinematics_verification(sim_group.pErr, **kwargs)
+        plot_residuals_verification(sim_group.Actuation_force, **kwargs)
+        plot_reserves_verification(sim_group.Actuation_force, **kwargs)
+    else:
+        pl.figure(figsize=(15, 8))
+        plot_kinematics_verification(sim_group.pErr, big_picture=(3, 0),
+                **kwargs)
+        plot_residuals_verification(sim_group.Actuation_force, big_picture=(3, 1),
+                **kwargs)
+        plot_reserves_verification(sim_group.Actuation_force, big_picture=(3, 2),
+                **kwargs)
 
 
 def rms(array):
@@ -294,7 +329,7 @@ def rms(array):
 
 
 def plot_kinematics_verification(pErr_table,
-        n_max=None, violators_only=False, show_legend=False):
+        n_max=None, violators_only=False, show_legend=False, big_picture=None):
     """Plots kinematics verification information, with comparisons to "good"
     and "okay", and "bad" thresholds, using matplotlib. Assumes that all
     translation-related degrees of freedom have names ending with either 'tx',
@@ -319,6 +354,11 @@ def plot_kinematics_verification(pErr_table,
         overrides the n_max setting. By default, this is False.
     show_legend : bool, optional
         Show a legend for all columns plotted. By default, False.
+    big_picture : tuple of 2 int's, optional (default: None)
+        If these two plots are to make up part of a plot grid, specify a tuple
+        with the first element as the number of columns in the figure, and the
+        second element as the column index (index starts at 0) for these plots.
+        Example is: (3, 0).
 
     """
     legend_kwargs = {'loc': 'upper left', 'bbox_to_anchor': (1, 1)}
@@ -340,8 +380,17 @@ def plot_kinematics_verification(pErr_table,
             max_trans = max(max_trans, sorted_pErr[i] * MtoCM)
     ylim_trans = np.max(trans_okay_thresh, 1.1 * max_trans)
 
-    # --- Translation.
-    pl.figure()
+    if big_picture != None:
+        n_col = big_picture[0]
+        this_col = big_picture[1]
+    else:
+        n_col = 1
+        this_col = 0
+        pl.figure(figsize=(5, 8))
+
+    # Translation
+    # -----------
+    pl.subplot2grid((2, n_col), (0, this_col))
 
     # -- Reference lines.
     pl.plot([time[0], time[-1]], [0, 0], color=(0.5, 0.5, 0.5))
@@ -384,8 +433,9 @@ def plot_kinematics_verification(pErr_table,
 
     if show_legend: pl.legend(**legend_kwargs)
 
-    # --- Rotation.
-    pl.figure()
+    # Rotation
+    # --------
+    pl.subplot2grid((2, n_col), (1, this_col))
 
     max_rot = -np.inf
     for i, coln in enumerate(sorted_colns):
@@ -437,7 +487,7 @@ def plot_kinematics_verification(pErr_table,
 
 
 def plot_residuals_verification(actforce_table, n_max=None,
-        violators_only=False, show_legend=False):
+        violators_only=False, show_legend=False, big_picture=None):
     """Plots residuals verification information, with comparisons to "good"
     and "okay", and "bad" thresholds, using matplotlib. Assumes the residual
     forces are named as F*, and that the residual moments are named as M*.
@@ -464,6 +514,11 @@ def plot_residuals_verification(actforce_table, n_max=None,
         overrides the n_max setting. By default, this is False.
     show_legend : bool, optional
         Show a legend for all columns plotted. By default, False.
+    big_picture : tuple of 2 int's, optional (default: None)
+        If these two plots are to make up part of a plot grid, specify a tuple
+        with the first element as the number of columns in the figure, and the
+        second element as the column index (index starts at 0) for these plots.
+        Example is: (3, 0).
 
     """
     legend_kwargs = {'loc': 'upper left', 'bbox_to_anchor': (1, 1)}
@@ -484,8 +539,16 @@ def plot_residuals_verification(actforce_table, n_max=None,
             max_force = max(max_force, sorted_actf[i])
     ylim_force = max(force_okay_thresh, 1.1 * max_force)
 
+    if big_picture != None:
+        n_col = big_picture[0]
+        this_col = big_picture[1]
+    else:
+        n_col = 1
+        this_col = 0
+        pl.figure(figsize=(5, 8))
+
     # --- Translation.
-    pl.figure()
+    pl.subplot2grid((2, n_col), (0, this_col))
 
     # -- Reference lines.
     pl.plot([time[0], time[-1]], [0, 0], color=(0.5, 0.5, 0.5))
@@ -528,7 +591,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
     if show_legend: pl.legend(**legend_kwargs)
 
     # --- Rotation.
-    pl.figure()
+    pl.subplot2grid((2, n_col), (1, this_col))
 
     max_moment = -np.inf
     for i, coln in enumerate(sorted_colns):
@@ -577,7 +640,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
 
 
 def plot_reserves_verification(actforce_table, n_max=None,
-        violators_only=False, show_legend=False):
+        violators_only=False, show_legend=False, big_picture=None):
     """Plots reserves verification information, with comparisons to "good"
     and "okay", and "bad" thresholds, using matplotlib. Assumes all reserves
     are torque actuators, and their names end with 'reserve'.
@@ -603,6 +666,11 @@ def plot_reserves_verification(actforce_table, n_max=None,
         overrides the n_max setting. By default, this is False.
     show_legend : bool, optional
         Show a legend for all columns plotted. By default, False.
+    big_picture : tuple of 2 int's, optional (default: None)
+        If these two plots are to make up part of a plot grid, specify a tuple
+        with the first element as the number of columns in the figure, and the
+        second element as the column index (index starts at 0) for these plots.
+        Example is: (3, 0).
 
     """
     legend_kwargs = {'loc': 'upper left', 'bbox_to_anchor': (1, 1)}
@@ -615,7 +683,12 @@ def plot_reserves_verification(actforce_table, n_max=None,
 
     sorted_actf, sorted_colns = sorted_maxabs(actforce_table)
 
-    pl.figure()
+    if big_picture != None:
+        n_col = big_picture[0]
+        this_col = big_picture[1]
+        pl.subplot2grid((2, n_col), (0, this_col))
+    else:
+        pl.figure(figsize=(5, 4))
 
     max_torque = -np.inf
     for i, coln in enumerate(sorted_colns):
@@ -1052,15 +1125,15 @@ def gait_landmarks_from_grf(mot_file,
 
     Returns
     -------
-    right_foot_strikes : list of float's
+    right_foot_strikes : np.array
         All times at which right_grfy is non-zero and it was 0 at the preceding
         time index.
-    left_foot_strikes : list of float's
+    left_foot_strikes : np.array
         Same as above, but for the left foot.
-    right_toe_offs : list of float's
+    right_toe_offs : np.array
         All times at which left_grfy is 0 and it was non-zero at the preceding
         time index.
-    left_toe_offs : list of float's
+    left_toe_offs : np.array
         Same as above, but for the left foot.
 
     """
@@ -1080,14 +1153,14 @@ def gait_landmarks_from_grf(mot_file,
             # index.
             if zero(data[i - 1]) and (not zero(data[i])):
                 births.append(time[i])
-        return births
+        return np.array(births)
 
     def death_times(data):
         deaths = list()
         for i in range(1, len(data)):
             if (not zero(data[i - 1])) and zero(data[i]):
                 deaths.append(time[i])
-        return deaths
+        return np.array(deaths)
 
     right_foot_strikes = birth_times(right_grfy)
     left_foot_strikes = birth_times(left_grfy)
@@ -1097,10 +1170,9 @@ def gait_landmarks_from_grf(mot_file,
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
 
-def plot(column):
+def plot(column, *args, **kwargs):
     """Plots a column of a pyTables table, against time.
 
     """
-    pl.plot(column.table.cols.time, column, label=column.name)
+    pl.plot(column.table.cols.time, column, label=column.name, *args, **kwargs)
     pl.xlabel('time (s)')
-    pl.title(column.name)
