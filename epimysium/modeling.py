@@ -104,6 +104,7 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         basalRateOn,
         mechanicalWorkRateOn)
     wholeBodyProbe.setOperation("value")
+    wholeBodyProbe.set_report_total_metabolics_only(False);
     
     # Add the probe to the model and provide a name.
     model.addProbe(wholeBodyProbe)

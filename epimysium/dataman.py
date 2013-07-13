@@ -59,7 +59,8 @@ def storage2numpy(storage_file):
     return data
 
 
-def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False):
+def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
+        title=''):
     """Docks an OpenSim output, via a table for each STO file, in a pyTable
     file.  It's assumed the tables don't already exist in the last group
     specified.
@@ -81,6 +82,8 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False):
         Allows the loading of just one STO file. Otherwise, an exception is
         thrown. It is common that if only one STO file exists, it is a partial
         states file and means that the simulation did not complete.
+    title : str, optional
+        Title, in the pyTables file, for this group.
 
     Returns
     -------
@@ -93,7 +96,7 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False):
         raise Exception("Output path {0:r} doesn't exist.".format(output_path))
 
     # -- Make all necessary groups to get to where we're going.
-    current_group = _blaze_group_trail(h5file, group_path)
+    current_group = _blaze_group_trail(h5file, group_path, title)
 
     # -- Determine which files we want to use to create tables.
 
@@ -132,7 +135,7 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False):
 
     return current_group
 
-def _blaze_group_trail(h5file, group_path):
+def _blaze_group_trail(h5file, group_path, title=''):
 
     # Start at the root.
     current_group = h5file.root
@@ -144,7 +147,7 @@ def _blaze_group_trail(h5file, group_path):
         if not hasattr(current_group, next_group_name):
 
             # Create the group.
-            h5file.createGroup(current_group, next_group_name)
+            h5file.createGroup(current_group, next_group_name, title=title)
 
         # Set this group as the current group.
         current_group = getattr(current_group, next_group_name)
