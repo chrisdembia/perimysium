@@ -54,24 +54,6 @@ def avg_sum_of_squared_activations(states_table):
     integral = np.trapz(sum_of_squared_activations(states_table), x=time)
     return integral / duration
 
-def change_in_activations_between_two_simulations(states_table1, states_table2,
-        init_time=None, final_time=None):
-    """Returns a dict providing, for each muscle in the two simulations, the
-    difference in the activation integrated over the duration of the
-    simulations specified.
-
-    UNIMPLEMENTED
-
-    Parameters
-    ----------
-
-    Ensure that both simulations have the same muscles.
-
-    """
-    # TODO
-    pass
-
-
 
 def avg(time, value, init_time=None, final_time=None, interval=None):
     """Finds the average value of `value` in time, using np.trapz.
