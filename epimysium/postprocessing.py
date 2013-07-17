@@ -4,11 +4,18 @@ results.
 
 """
 
+import collections
+import os
+
 import numpy as np
 import pylab as pl
 import tables
 
 from epimysium import dataman
+
+def savefigtolog(figname, *args, **kwargs):
+    pl.savefig(os.path.join(os.environ['LOGFIGS'], figname), *args, **kwargs)
+
 
 def nearest_index(array, val):
     return np.abs(array - val).argmin()
@@ -286,10 +293,10 @@ def plot_simulation_verification(sim_group, **kwargs):
         pl.figure(figsize=(15, 8))
         plot_kinematics_verification(sim_group.pErr, big_picture=(3, 0),
                 **kwargs)
-        plot_residuals_verification(sim_group.Actuation_force, big_picture=(3, 1),
-                **kwargs)
-        plot_reserves_verification(sim_group.Actuation_force, big_picture=(3, 2),
-                **kwargs)
+        plot_residuals_verification(sim_group.Actuation_force,
+                big_picture=(3, 1), **kwargs)
+        plot_reserves_verification(sim_group.Actuation_force,
+                big_picture=(3, 2), **kwargs)
 
 
 def rms(array):
@@ -871,7 +878,7 @@ def plot_activations(sim, muscles=None, interval=10, subplot_width=4,
 
     Parameters
     ----------
-    sim : tables.Group, or dict of tables.Group's
+    sim : tables.Group, or dict/collections.OrderedDict of tables.Group's
         A pyTables group holding tables docked from a simulation (e.g., CMC).
     muscles : list of str's, optional
         The names of muscle for which to plot activations. By default, plots
@@ -962,7 +969,7 @@ def plot_activations(sim, muscles=None, interval=10, subplot_width=4,
 
     for i, muscle in enumerate(muscles):
         pl.subplot(n_plots_tall, n_plots_wide, i+1)
-        if type(sim) == dict:
+        if type(sim) == dict or type(sim) == collections.OrderedDict:
             # Multiple simulations to compare.
             i_sim = 0
             for k, v in sim.items():
@@ -1152,9 +1159,147 @@ def gait_landmarks_from_grf(mot_file,
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
 
+def plot_joint_torque_contributions(muscle_contrib_table,
+        total_joint_torque=None, muscles=None,
+        plot_sum_of_selected_muscles=False,
+        show_legend=True):
+    """Creates a stackplot of the individual muscle contributions to a joint
+    torque. Requires output from a Muscle Analysis. This can be used to study
+    how muscle coordination affects multiple joints.
+
+    Parameters
+    ----------
+    muscle_contrib_table : tables.Table
+        Table, created from a Muscle Analysis, containing the muscle
+        contributions from all muscles to the coordinate / joint angle under
+        consideration.
+    total_joint_torque : tables.Column, optional
+        Want to compare the total joint torque, obtained by summing up all
+        muscle contributions, to the joint torque from a table containing
+        joint-level inverse dynamics results (such as RRA's Actuation_force
+        table)? Then provide that total joint torque here! Must be a table, so
+        we can access the associated time Column.
+    muscles : list of str's
+        Plot only the contributions of these muscles.
+    plot_sum_of_selected_muscles : bool, optional (default: False)
+        Also plot the sum of contribution of selected muscles.
+    show_legend : bool, optional (default: True)
+        Show the legend.
+
+    Examples
+    --------
+    >>> plot_joint_torque_contributions(
+    ...     h.root.muscle_noassist.Moment_ankle_angle_r,
+    ...     h.root.rra.Actuation_force.cols.ankle_angle_r)
+
+    """
+    # TODO plot between given times, percent gait cycle, etc.
+    # For brevity.
+    table = muscle_contrib_table
+    time = table.cols.time
+
+    threshold = 0.001
+
+    # Total joint torque, computed as a sum of individual muscle contributions.
+    # Initialize as array of zeros of the same size.
+    total_sum = 0.0 * time[:]
+    for cname in table.colnames:
+        if cname != 'time':
+            total_sum += table.col(cname)
+
+    # Plot individual muscle contributions.
+    if plot_sum_of_selected_muscles:
+        sum_selected = 0.0 * time[:]
+    for cname in table.colnames:
+        if ((cname != 'time') and (abs(avg(time, table.col(cname))) >
+            threshold) and (muscles == None or cname in muscles)):
+            # time column is not a muscle; only look for non-zero
+            # contributions.
+            pl.plot(time, table.col(cname), label=cname)
+
+            if plot_sum_of_selected_muscles:
+                sum_selected += table.col(cname)
+
+    if plot_sum_of_selected_muscles:
+        # 'above' because they appear in the legend above the legend entry
+        # for this plot.
+        pl.plot(time, sum_selected, label='sum of muscles above', lw=2)
+
+    # Plot total on top of individual muscle contributions.
+    pl.plot(time, total_sum, label='sum of all muscles', lw=2)
+
+    # Compare to given total.
+    # -----------------------
+    if total_joint_torque != None:
+        pl.plot(total_joint_torque.table.cols.time, total_joint_torque,
+                label='total joint torque', lw=2)
+
+    pl.xlabel('time (s)')
+
+    if show_legend: pl.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+
+def muscle_contribution_to_joint_torque(muscle_torque, total_joint_torque):
+    """This metric describes how much a muscle's torque about a joint
+    contributes to the total joint torque about a joint. Value of 1 means that
+    it contributes everything. The value can be negative for an antagonistic
+    muscle. Both input arrays must be on the same time intervals, etc.
+
+    If you add up the output of this method for all muscles crossing the joint,
+    that sum should be 1.0.
+
+    Parameters
+    ----------
+    muscle_torque : array_like
+        The torque that the muscle in question applies about the desired joint;
+        time series data.
+    total_joint_torque : array_like or tables.Table
+        If array_like, the total torque about the desired joint. If
+        tables.Table, we compute the total_joint_torque by summing up all
+        columns in this file except for the 'time' column.
+
+    """
+    if type(total_joint_torque) == tables.Table:
+        total = 0.0 * muscle_torque[:]
+        for cname in total_joint_torque.colnames:
+            if cname != 'time':
+                total += total_joint_torque.col(cname)
+    else:
+        total = total_joint_torque
+
+    delta = float(len(muscle_torque))
+    return np.sum(muscle_torque / total) / delta
+
+
 def plot(column, *args, **kwargs):
     """Plots a column of a pyTables table, against time.
 
     """
     pl.plot(column.table.cols.time, column, label=column.name, *args, **kwargs)
     pl.xlabel('time (s)')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
