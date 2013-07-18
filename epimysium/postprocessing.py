@@ -367,7 +367,7 @@ def plot_kinematics_verification(pErr_table,
     for i, coln in enumerate(sorted_colns):
         if coln.endswith('tx') or coln.endswith('ty') or coln.endswith('tz'):
             max_trans = max(max_trans, sorted_pErr[i] * MtoCM)
-    ylim_trans = np.max(trans_okay_thresh, 1.1 * max_trans)
+    ylim_trans = max(trans_okay_thresh, 1.1 * max_trans)
 
     if big_picture != None:
         n_col = big_picture[0]
@@ -524,7 +524,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
 
     max_force = -np.inf
     for i, coln in enumerate(sorted_colns):
-        if coln.startswith('F'):
+        if coln.startswith('F') or coln.startswith('residual_F'):
             max_force = max(max_force, sorted_actf[i])
     ylim_force = max(force_okay_thresh, 1.1 * max_force)
 
@@ -561,7 +561,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
     # Reverse to get descending order.
     count_force = 0
     for i, coln in enumerate(reversed(sorted_colns)):
-        if coln.startswith('F'):
+        if coln.startswith('F') or coln.startswith('residual_M'):
             if violators_only:
                 if (sorted_actf[len(sorted_actf) - i - 1] > force_good_thresh):
                     plot(actforce_table.col(coln), coln)
@@ -584,7 +584,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
 
     max_moment = -np.inf
     for i, coln in enumerate(sorted_colns):
-        if coln.startswith('M'):
+        if coln.startswith('M') or coln.startswith('residual_M'):
             max_moment = max(max_moment, np.array(sorted_actf[i]))
     ylim_moment = max(moment_okay_thresh, 1.1 * max_moment)
 
@@ -608,7 +608,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
     # Reverse to get descending order.
     count_moment = 0
     for i, coln in enumerate(reversed(sorted_colns)):
-        if coln.startswith('M'):
+        if coln.startswith('M') or coln.startswith('residual_M'):
             if violators_only:
                 if (sorted_actf[len(sorted_actf) - i - 1] >
                         moment_good_thresh):
@@ -681,7 +681,7 @@ def plot_reserves_verification(actforce_table, n_max=None,
 
     max_torque = -np.inf
     for i, coln in enumerate(sorted_colns):
-        if coln.endswith('reserve'):
+        if coln.count('reserve') != 0:
             max_torque = max(max_torque, sorted_actf[i])
     ylim_torque = max(okay_thresh, 1.1 * max_torque)
 
@@ -706,7 +706,7 @@ def plot_reserves_verification(actforce_table, n_max=None,
     # Reverse to get descending order.
     count_torque = 0
     for i, coln in enumerate(reversed(sorted_colns)):
-        if coln.endswith('reserve'):
+        if coln.count('reserve') != 0:
             if violators_only:
                 if (sorted_actf[len(sorted_actf) - i - 1] > good_thresh):
                     plot(actforce_table.col(coln), coln)
@@ -821,12 +821,12 @@ def verify_residuals(actforce_table):
 
     max_force = -np.inf
     for i, coln in enumerate(sorted_colns):
-        if coln.startswith('F'):
+        if coln.startswith('F') or coln.startswith('residual_F'):
             max_force = max(max_force, sorted_actf[i])
 
     max_moment = -np.inf
     for i, coln in enumerate(sorted_colns):
-        if coln.startswith('M'):
+        if coln.startswith('M') or coln.startswith('residual_M'):
             max_moment = max(max_moment, np.array(sorted_actf[i]))
 
     force_eval = _evaluate_threshold(max_force, force_good_thresh,
@@ -863,7 +863,7 @@ def verify_reserves(actforce_table):
 
     max_torque = -np.inf
     for i, coln in enumerate(sorted_colns):
-        if coln.endswith('reserve'):
+        if coln.count('reserve') != 0:
             max_torque = max(max_torque, sorted_actf[i])
 
     evaluation = _evaluate_threshold(max_torque, good_thresh, okay_thresh)

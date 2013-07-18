@@ -7,12 +7,13 @@
 # changes that need to be made to the model file.
 # TODO allow specifying which cycles to manage.
 
+import abc
 import csv
 import difflib
-import shutil
-import os
-import abc
 import filecmp
+import os
+import shutil
+import sys
 import xml.etree.ElementTree as etree
 
 import tables
@@ -58,6 +59,35 @@ def storage2numpy(storage_file):
 
     return data
 
+def _splitall(path):
+    """Splits a path into a list of the directories in the path. Copied from http://my.safaribooksonline.com/book/programming/python/0596001673/files/pythoncook-chp-4-sect-16.
+
+    Parameters
+    ----------
+    path : str
+        The path to split up.
+
+    Returns
+    -------
+    allparts : list of str's
+        One entry for each directory in the provided path; kept in the correct
+        order.
+
+    """
+    allparts = []
+    while 1:
+        parts = os.path.split(path)
+        if parts[0] == path:  # sentinel for absolute paths
+            allparts.insert(0, parts[0])
+            break
+        elif parts[1] == path: # sentinel for relative paths
+            allparts.insert(0, parts[1])
+            break
+        else:
+            path = parts[0]
+            allparts.insert(0, parts[1])
+    return allparts
+
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         title=''):
@@ -75,9 +105,10 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         Only .STO files are loaded, and it is assumed that all .STO files in
         this directory are from one run. That is, they have the same prefix,
         which is the name of the run.
-    group_path : list of str's
+    group_path : str, or list of str's
         The group tree hierarchy specifying where the output is to be docked in
-        the h5file.
+        the h5file; as a path or as list of each directory's name (e.g.:
+        'path/to/file' or ['path', 'to', 'file'])
     allow_one : bool, optional (default: False)
         Allows the loading of just one STO file. Otherwise, an exception is
         thrown. It is common that if only one STO file exists, it is a partial
@@ -94,6 +125,10 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
     # If output_path doesn't exist, can't do anything.
     if not os.path.exists(output_path):
         raise Exception("Output path {0:r} doesn't exist.".format(output_path))
+
+    # Convert group_path to list of str's, if necessary.
+    if type(group_path) == str:
+        group_path = _splitall(group_path)
 
     # -- Make all necessary groups to get to where we're going.
     current_group = _blaze_group_trail(h5file, group_path, title)
