@@ -1095,7 +1095,9 @@ def gait_landmarks_from_grf(mot_file,
         right_grfy_column_name='ground_force_vy',
         left_grfy_column_name='1_ground_force_vy',
         threshold=1e-5,
-        do_plot=False):
+        do_plot=False,
+        min_time=None,
+        max_time=None):
     """
     Obtain gait landmarks (right and left foot strike & toe-off) from ground
     reaction force (GRF) time series data.
@@ -1115,6 +1117,10 @@ def gait_landmarks_from_grf(mot_file,
     do_plot : bool, optional (default: False)
         Create plots of the detected gait landmarks on top of the vertical
         ground reaction forces.
+    min_time : float, optional
+        If set, only consider times greater than `min_time`.
+    max_time : float, optional
+        If set, only consider times greater than `max_time`.
 
     Returns
     -------
@@ -1136,22 +1142,33 @@ def gait_landmarks_from_grf(mot_file,
     right_grfy = data[right_grfy_column_name]
     left_grfy = data[left_grfy_column_name]
 
+    # Time range to consider.
+    if max_time == None: max_idx = len(time)
+    else: max_idx = nearest_index(time, max_time)
+
+    if min_time == None: min_idx = 1
+    else: min_idx = max(1, nearest_index(time, min_time))
+
+    index_range = range(min_idx, max_idx)
+
+    # Helper functions
+    # ----------------
     def zero(number):
         return abs(number) < threshold
 
-    def birth_times(data):
+    def birth_times(ordinate):
         births = list()
-        for i in range(1, len(data)):
+        for i in index_range:
             # 'Skip' first value because we're going to peak back at previous
             # index.
-            if zero(data[i - 1]) and (not zero(data[i])):
+            if zero(ordinate[i - 1]) and (not zero(ordinate[i])):
                 births.append(time[i])
         return np.array(births)
 
-    def death_times(data):
+    def death_times(ordinate):
         deaths = list()
-        for i in range(1, len(data)):
-            if (not zero(data[i - 1])) and zero(data[i]):
+        for i in index_range:
+            if (not zero(ordinate[i - 1])) and zero(ordinate[i]):
                 deaths.append(time[i])
         return np.array(deaths)
 
@@ -1167,7 +1184,7 @@ def gait_landmarks_from_grf(mot_file,
 
         def myplot(index, label, ordinate, foot_strikes, toe_offs):
             ax = pl.subplot(1, 2, index)
-            pl.plot(time, ordinate, 'k')
+            pl.plot(time[min_idx:max_idx], ordinate[min_idx:max_idx], 'k')
             pl.xlabel('time (s)')
             if index == 1: pl.ylabel('vertical ground reaction force (N)')
             pl.title('%s (%i foot strikes, %i toe-offs)' % (
@@ -1489,11 +1506,77 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
     pl.xlabel('percent gait cycle')
 
 
-def gait_scrutiny_report(sim, comparison):
-    """Creates a LaTeX report that exhaustively compares differences between
+def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
+        comparison_landmarks, muscles=None):
+    """Creates a PDF report that exhaustively compares differences between
     two simulations. The following are compared:
 
-    TODO
+    * joint angles
+    * muscle activations
+    * muscle forces
+    * muscle metabolics
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file to save the PDF to.
+    sim : tables.Group
+        The CMC output of the simulation under investigation.
+    comparison : tables.Group
+        The CMC output of the simulation to which we are comparing our results.
+    sim_landmarks : dict
+        Gait landmarks for `sim`, so we can plot against percent gait cycle
+        rather than against time. Keys are `first_strike`, `second_strike`,
+        `opposite_strike`, and `toeoff`.
+    comparison_landmarks : dict
+        Same as above, but for `comparison`.
+    muscles : list of str's, optional
+        Specify the muscles to compare. Set to None to compare all muscles.
+
+    """
+    # TODO joint torques
+
+    from matplotlib.backends.backend_pdf import PdfPages
+    pp = PdfPages(fname)
+
+    # Joint angles
+    # ------------
+    print 'Processing joint angles.'
+    kin = pl.figure()
+
+    pl.subplot(3, 1, 1)
+#    pl.plot(
+
+
+    pp.savefig(kin)
+
+    # Muscle activations
+    # ------------------
+    print 'Processing muscle activations.'
+    act = pl.figure()
+
+    pp.savefig(act)
+
+    # Muscle forces
+    # -------------
+    print 'Processing muscle forces.'
+    fo = pl.figure()
+
+    pp.savefig(fo)
+
+    # Muscle metabolics
+    # -----------------
+    print 'Processing muscle metabolics.'
+    met = pl.figure()
+
+    pp.savefig(met)
+
+    pp.close()
+
+
+
+
+"""
     import matplotlib.pyplot as plt                                                 
                                                                                 
 def plotGraph():                                                                
@@ -1515,7 +1598,6 @@ pp.savefig(plot3)
 pp.close()                                                                      
 ~               
     """
-    pass
 
 
 def percent_duration_single(time, start, end):
