@@ -1094,7 +1094,8 @@ def shift_data_to_cycle(
 def gait_landmarks_from_grf(mot_file,
         right_grfy_column_name='ground_force_vy',
         left_grfy_column_name='1_ground_force_vy',
-        threshold=1e-5):
+        threshold=1e-5,
+        do_plot=False):
     """
     Obtain gait landmarks (right and left foot strike & toe-off) from ground
     reaction force (GRF) time series data.
@@ -1111,6 +1112,9 @@ def gait_landmarks_from_grf(mot_file,
     threshold : float, optional
         Below this value, the force is considered to be zero (and the
         corresponding foot is not touching the ground).
+    do_plot : bool, optional (default: False)
+        Create plots of the detected gait landmarks on top of the vertical
+        ground reaction forces.
 
     Returns
     -------
@@ -1127,7 +1131,7 @@ def gait_landmarks_from_grf(mot_file,
 
     """
     data = dataman.storage2numpy(mot_file)
-    
+
     time = data['time']
     right_grfy = data[right_grfy_column_name]
     left_grfy = data[left_grfy_column_name]
@@ -1155,6 +1159,35 @@ def gait_landmarks_from_grf(mot_file,
     left_foot_strikes = birth_times(left_grfy)
     right_toe_offs = death_times(right_grfy)
     left_toe_offs = death_times(left_grfy)
+
+    if do_plot:
+
+        pl.figure(figsize=(8, 4))
+        ones = np.array([1, 1])
+
+        def myplot(index, label, ordinate, foot_strikes, toe_offs):
+            ax = pl.subplot(1, 2, index)
+            pl.plot(time, ordinate, 'k')
+            pl.xlabel('time (s)')
+            if index == 1: pl.ylabel('vertical ground reaction force (N)')
+            pl.title('%s (%i foot strikes, %i toe-offs)' % (
+                label, len(foot_strikes), len(toe_offs)))
+
+            for i, strike in enumerate(foot_strikes):
+                if i == 0: kwargs = {'label': 'foot strikes'}
+                else: kwargs = dict()
+                pl.plot(strike * ones, ax.get_ylim(), 'r', **kwargs)
+
+            for i, off in enumerate(toe_offs):
+                if i == 0: kwargs = {'label': 'toe-offs'}
+                else: kwargs = dict()
+                pl.plot(off * ones, ax.get_ylim(), 'b', **kwargs)
+
+
+        myplot(1, 'left foot', left_grfy, left_foot_strikes, left_toe_offs)
+        myplot(2, 'right foot', right_grfy, right_foot_strikes, right_toe_offs)
+
+        pl.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
@@ -1269,6 +1302,255 @@ def muscle_contribution_to_joint_torque(muscle_torque, total_joint_torque):
 
     delta = float(len(muscle_torque))
     return np.sum(muscle_torque / total) / delta
+
+
+def plot_gait_kinematics(kin, primary_leg, first_footstrike,
+        second_footstrike, opposite_footstrike,
+        toeoff_time=None):
+    """Plots hip, knee, and ankle angles, in degrees, as a function of percent
+    gait cycle, for one gait cycle. Gait cycle starts with a footstrike (start
+    of stance). Kinematics is plotted for both legs; the data for the
+    'opposite' leg is properly shifted so that we plot it starting from a
+    footstrike as well.
+
+    We assume provided angle data is in degrees.
+
+    Knee angle is negated: In OpenSim, flexion is represented by a negative
+    value for the hip_flexion_angle. In literature, flexion is shown as
+    positive.
+
+    Parameters
+    ----------
+    kin : pytables.Group
+        Kinematics_q group from a simulation.
+    primary_leg : str; 'right' or 'left'
+        The first and second foot strikes are for which leg?
+    first_footstrike : float
+        Time, in seconds, of the foot strike that starts this gait cycle.
+    second_footstrike : float
+        Time, in seconds, of the foot strike that ends this gait cycle.
+    opposite_footstrike : float
+        In between the other two footstrikes, the opposite foot also strikes
+        the ground. What's the time at which this happens? This is used to
+        shift the data for the opposite leg so that it lines up with the
+        `primary` leg's data.
+    toeoff_time : bool, optional
+        Draw a vertical line on the plot to indicate when the primary foot
+        toe-off occurs by providing the time at which this occurs.
+
+    """
+    # TODO compare to experimental data.
+    # TODO compare to another simulation.
+    if primary_leg == 'right':
+        opposite_leg = 'left'
+    elif primary_leg == 'left':
+        opposite_leg = 'right'
+    else:
+        raise Exception("'primary_leg' is '%s'; it must "
+                "be 'left' or 'right'." % primary_leg)
+
+    def plot_for_a_leg(coordinate_name, leg, color='k', mult=1.0):
+        time, angle = shift_data_to_cycle(
+                first_footstrike, second_footstrike,
+                first_footstrike,
+                kin.cols.time,
+                getattr(kin.cols, '%s_%s' % (
+                    coordinate_name, leg[0])))
+        pl.plot(percent_duration(time), mult * angle, color=color,
+                label=leg)
+
+    def plot_primary_leg(coordinate_name, **kwargs):
+        plot_for_a_leg(coordinate_name, primary_leg, **kwargs)
+
+    def plot_opposite_leg(coordinate_name, **kwargs):
+        plot_for_a_leg(coordinate_name, opposite_leg, color=(0.5, 0.5, 0.5),
+                **kwargs)
+
+    def plot_coordinate(index, name, negate=False, label=None):
+        ax = pl.subplot(3, 1, index)
+        if negate:
+            plot_primary_leg(name, mult=-1.0)
+            plot_opposite_leg(name, mult=-1.0)
+        else:
+            plot_primary_leg(name)
+            plot_opposite_leg(name)
+        # TODO this next line isn't so great of an idea:
+        if label == None:
+            label = name.replace('_', ' ')
+        pl.ylabel('%s (degrees)' % label)
+        pl.legend()
+
+        if toeoff_time != None:
+            # 'pgc' is percent gait cycle
+            toeoff_pgc = percent_duration_single(toeoff_time,
+                first_footstrike, second_footstrike)
+            pl.plot(toeoff_pgc * np.array([1, 1]), ax.get_ylim(),
+                    c=(0.5, 0.5, 0.5))
+
+        pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+
+    pl.figure(figsize=(4, 12))
+    plot_coordinate(1, 'hip_flexion')
+    plot_coordinate(2, 'knee_angle', negate=True, label='knee flexion')
+    plot_coordinate(3, 'ankle_angle', label='ankle dorsiflexion')
+    pl.xlabel('percent gait cycle')
+
+
+def plot_gait_torques(actu, primary_leg, first_footstrike,
+        second_footstrike, opposite_footstrike,
+        toeoff_time=None):
+    """Plots hip, knee, and ankle torques, as a function of percent
+    gait cycle, for one gait cycle. Gait cycle starts with a footstrike (start
+    of stance). Torques are plotted for both legs; the data for the
+    'opposite' leg is properly shifted so that we plot it starting from a
+    footstrike as well.
+
+    We assume torques are in units of N-m.
+
+    Knee torque is negated: In OpenSim, a flexion torque is represented by a
+    negative value for the torque. In literature, flexion is shown
+    as positive.
+
+    Parameters
+    ----------
+    actu : pytables.Group
+        Actuation_force group from a simulation containing joint torques
+        (probably an RRA output).
+    primary_leg : str; 'right' or 'left'
+        The first and second foot strikes are for which leg?
+    first_footstrike : float
+        Time, in seconds, of the foot strike that starts this gait cycle.
+    second_footstrike : float
+        Time, in seconds, of the foot strike that ends this gait cycle.
+    opposite_footstrike : float
+        In between the other two footstrikes, the opposite foot also strikes
+        the ground. What's the time at which this happens? This is used to
+        shift the data for the opposite leg so that it lines up with the
+        `primary` leg's data.
+    toeoff_time : bool, optional
+        Draw a vertical line on the plot to indicate when the primary foot
+        toe-off occurs by providing the time at which this occurs.
+
+    """
+    # TODO compare to experimental data.
+    # TODO compare to another simulation.
+    if primary_leg == 'right':
+        opposite_leg = 'left'
+    elif primary_leg == 'left':
+        opposite_leg = 'right'
+    else:
+        raise Exception("'primary_leg' is '%s'; it must "
+                "be 'left' or 'right'." % primary_leg)
+
+    def plot_for_a_leg(coordinate_name, leg, color='k', mult=1.0):
+        time, angle = shift_data_to_cycle(
+                first_footstrike, second_footstrike,
+                first_footstrike,
+                actu.cols.time,
+                getattr(actu.cols, '%s_%s' % (
+                    coordinate_name, leg[0])))
+        pl.plot(percent_duration(time), mult * angle, color=color,
+                label=leg)
+
+    def plot_primary_leg(coordinate_name, **kwargs):
+        plot_for_a_leg(coordinate_name, primary_leg, **kwargs)
+
+    def plot_opposite_leg(coordinate_name, **kwargs):
+        plot_for_a_leg(coordinate_name, opposite_leg, color=(0.5, 0.5, 0.5),
+                **kwargs)
+
+    def plot_coordinate(index, name, negate=False, label=None):
+        ax = pl.subplot(3, 1, index)
+        if negate:
+            plot_primary_leg(name, mult=-1.0)
+            plot_opposite_leg(name, mult=-1.0)
+        else:
+            plot_primary_leg(name)
+            plot_opposite_leg(name)
+        # TODO this next line isn't so great of an idea:
+        if label == None:
+            label = name.replace('_', ' ')
+        pl.ylabel('%s (N-m)' % label)
+        pl.legend()
+
+        if toeoff_time != None:
+            # 'pgc' is percent gait cycle
+            toeoff_pgc = percent_duration_single(toeoff_time,
+                first_footstrike, second_footstrike)
+            pl.plot(toeoff_pgc * np.array([1, 1]), ax.get_ylim(),
+                    c=(0.5, 0.5, 0.5))
+
+        pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+
+    pl.figure(figsize=(4, 12))
+    plot_coordinate(1, 'hip_flexion', label='hip flexion torque')
+    plot_coordinate(2, 'knee_angle', negate=True, label='knee flexion torque')
+    plot_coordinate(3, 'ankle_angle', label='ankle dorsiflexion torque')
+    pl.xlabel('percent gait cycle')
+
+
+def gait_scrutiny_report(sim, comparison):
+    """Creates a LaTeX report that exhaustively compares differences between
+    two simulations. The following are compared:
+
+    TODO
+    import matplotlib.pyplot as plt                                                 
+                                                                                
+def plotGraph():                                                                
+    fig = plt.figure()                                                          
+    ### Plotting arrangements ###                                               
+    plt.plot([1, 2, 3], [43, 6,13])                                             
+    return fig                                                                  
+                                                                                
+from matplotlib.backends.backend_pdf import PdfPages                            
+                                                                                
+plot1 = plotGraph()                                                             
+plot2 = plotGraph()                                                             
+plot3 = plotGraph()                                                             
+                                                                                
+pp = PdfPages('foo.pdf')                                                        
+pp.savefig(plot1)                                                               
+pp.savefig(plot2)                                                               
+pp.savefig(plot3)                                                               
+pp.close()                                                                      
+~               
+    """
+    pass
+
+
+def percent_duration_single(time, start, end):
+    """Converts a single time value to a percent duration (e.g., percent gait
+    cycle) value. The difference between this method and `percent_duration` is
+    that this works on a single float, rather than on an array.
+
+    Parameters
+    ----------
+    time : float
+        The time value to convert, with units of time (e.g., seconds).
+    start : float
+        The start of the duration (0 %), in the same units of time.
+    end : float
+        The end of the duration (100 %), in the same units of time.
+
+    """
+    return (time - start) / (end - start) * 100.0
+
+
+def percent_duration(time):
+    """Converts a time array to percent duration (e.g., percent gait cycle).
+
+    Parameters
+    ----------
+    time : np.array
+        The time data to convert, with units of time (e.g., seconds).
+
+    Returns
+    -------
+    percent_duration : np.array
+        Varies from 0 to 100.
+
+    """
+    return (time - time[0]) / (time[-1] - time[0]) * 100.0
 
 
 def plot(column, *args, **kwargs):
