@@ -1522,6 +1522,8 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
     - muscle forces
     - muscle metabolics
 
+    Expects the gait2392 muscle set, and muscle names.
+
     Parameters
     ----------
     fname : str
@@ -1600,7 +1602,7 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
 
                 if ylims == None: ylims = ax.get_ylim()
                 pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
-                        c=(0.5, 0.5, 0.5), zorder=0, lw=1.5, **kwargs)
+                        c=(0.8, 0.8, 0.8), zorder=0, lw=1.5, **kwargs)
 
         ax = pl.subplot2grid(grid, loc)
 
@@ -1632,13 +1634,96 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
 
     # Muscles!
     # ========
+    def create_plate(subtitle, table, ylabel, pattern, dims, mset, yticks=None,
+            **kwargs):
+        print 'Processing muscle %s.' % subtitle
+        f = pl.figure(figsize=(4 * dims[0], 4 * dims[1]))
+        pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
+
+        for loc, name in mset.items():
+            plot_coordinate(dims, loc, table,
+                    pattern % name, title=muscle_names[name], **kwargs)
+            if loc[1] == 0: pl.ylabel(ylabel)
+            if loc[0] == 3: pl.xlabel('percent gait cycle')
+
+            if yticks: pl.yticks(yticks)
+
+        pp.savefig(f)
+
+    def create_3_plates(subname, mset, dims):
+        create_plate('activations (%s)' % subname,
+                'states', 'activation (-)', '%s_!_activation',
+                dims, mset,
+                yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
+        create_plate('forces (%s)' % subname,
+                'Actuation_force', 'force (N)', '%s_!', dims, mset)
+        try:
+            create_plate('metabolics (%s)' % subname,
+                    'ProbeReporter_probes',
+                    'metabolic consumption rate (W)',
+                    'metabolic_power_%s_!', dims, mset)
+        except Exception as e:
+            print e.message
+
+
     # Define muscles to use for the remaining sets of plots.
+    muscle_names = dict()
+    muscle_names['rect_fem'] = 'rectus femoris'
+    muscle_names['vas_med'] = 'vastus medialis'
+    muscle_names['vas_int'] = 'vastus intermedius'
+    muscle_names['vas_lat'] = 'vastus lateralis'
+    muscle_names['semimem'] = 'semimembranosus'
+    muscle_names['semiten'] = 'semitendinosus'
+    muscle_names['bifemsh'] = 'biceps femoris short head'
+    muscle_names['bifemlh'] = 'biceps femoris long head'
+    muscle_names['tib_ant'] = 'tibialis anterior'
+    muscle_names['ext_dig'] = 'extensor digitorum'
+    muscle_names['ext_hal'] = 'extensor hallucis'
+    muscle_names['per_tert'] = 'peroneus tertius'
+    muscle_names['med_gas'] = 'medial gastrocnemius'
+    muscle_names['lat_gas'] = 'lateral gastrocnemius'
+    muscle_names['soleus'] = 'soleus'
+    muscle_names['tib_post'] = 'tibialis posterior'
+
+    muscle_names['flex_dig'] = 'flexor digitorum'
+    muscle_names['flex_hal'] = 'flexor hallucis'
+    muscle_names['per_brev'] = 'peroneus brevis'
+    muscle_names['per_long'] = 'peroneus longus'
+    muscle_names['ercspn'] = 'erector spinae'
+    muscle_names['extobl'] = 'external obliques'
+    muscle_names['intobl'] = 'internal obliques'
+    muscle_names['pect'] = 'pectineus'
+    muscle_names['quad_fem'] = 'quadratus femoris'
+    muscle_names['gem'] = 'gemellus'
+    muscle_names['peri'] = 'periformis'
+    muscle_names['grac'] = 'gracilis'
+    muscle_names['sar'] = 'sartorius'
+    muscle_names['tfl'] = 'tensor fascia latae'
+    muscle_names['iliacus'] = 'iliacus'
+    muscle_names['psoas'] = 'psoas major'
+
+    muscle_names['glut_max1'] = 'gluteus maximus 1'
+    muscle_names['glut_max2'] = 'gluteus maximus 2'
+    muscle_names['glut_max3'] = 'gluteus maximus 3'
+    muscle_names['glut_med1'] = 'gluteus medius 1'
+    muscle_names['glut_med2'] = 'gluteus medius 2'
+    muscle_names['glut_med3'] = 'gluteus medius 3'
+    muscle_names['glut_min1'] = 'gluteus minimus 1'
+    muscle_names['glut_min2'] = 'gluteus minimus 2'
+    muscle_names['glut_min3'] = 'gluteus minimus 3'
+    muscle_names['add_mag1'] = 'adductor magnus 1'
+    muscle_names['add_mag2'] = 'adductor magnus 2'
+    muscle_names['add_mag3'] = 'adductor magnus 3'
+    muscle_names['add_long'] = 'adductor longus'
+    muscle_names['add_brev'] = 'adductor brevis'
+
     muscle_set = dict()
 
     # Quadriceps.
     muscle_set[(0, 0)] = 'rect_fem'
     muscle_set[(0, 1)] = 'vas_med'
-    muscle_set[(0, 2)] = 'vas_lat'
+    muscle_set[(0, 2)] = 'vas_int'
+    muscle_set[(0, 3)] = 'vas_lat'
 
     # Hamstrings.
     muscle_set[(1, 0)] = 'semimem'
@@ -1657,61 +1742,63 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
     muscle_set[(3, 1)] = 'lat_gas'
     muscle_set[(3, 2)] = 'soleus'
     muscle_set[(3, 3)] = 'tib_post'
-    muscle_set[(2, 4)] = 'flex_dig'
-    muscle_set[(2, 5)] = 'flex_hal'
-    muscle_set[(2, 6)] = 'per_brev'
-    muscle_set[(2, 7)] = 'per_long'
 
-    muscle_names = dict()
-    muscle_names['rect_fem'] = 'rectus femoris'
-    muscle_names['vas_med'] = 'vastus medialis'
-    muscle_names['vas_lat'] = 'vastus lateralis'
-    muscle_names['semimem'] = 'semimembranosus'
-    muscle_names['semiten'] = 'semitendinosus'
-    muscle_names['bifemsh'] = 'biceps femoris short head'
-    muscle_names['bifemlh'] = 'biceps femoris long head'
-    muscle_names['tib_ant'] = 'tibialis anterior'
-    muscle_names['ext_dig'] = 'extensor digitorum'
-    muscle_names['ext_hal'] = 'extensor hallucis'
-    muscle_names['per_tert'] = 'peroneus tertius'
-    muscle_names['med_gas'] = 'medial gastrocnemius'
-    muscle_names['lat_gas'] = 'lateral gastrocnemius'
-    muscle_names['soleus'] = 'soleus'
-    muscle_names['tib_post'] = 'tibialis posterior'
-    muscle_names['flex_dig'] = 'flexor digitorum'
-    muscle_names['flex_hal'] = 'flexor hallucis'
-    muscle_names['per_brev'] = 'peroneus brevis'
-    muscle_names['per_long'] = 'peroneus longus'
+    create_3_plates('key locomotion muscles', muscle_set, (4, 4))
 
-    def create_plate(subtitle, table, ylabel, pattern, yticks=None, **kwargs):
-        print 'Processing muscle %s.' % subtitle
-        f = pl.figure(figsize=(30, 16))
-        pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
+    # Define muscles to use for the remaining sets of plots.
+    muscle_set = dict()
 
-        for loc, name in muscle_set.items():
-            plot_coordinate((4, 8), loc, table,
-                    pattern % name, title=muscle_names[name], **kwargs)
-            if loc[1] == 0: pl.ylabel(ylabel)
-            if loc[0] == 3: pl.xlabel('percent gait cycle')
+    # Torso.
+    muscle_set[(0, 0)] = 'ercspn'
+    muscle_set[(0, 1)] = 'extobl'
+    muscle_set[(0, 2)] = 'intobl'
+    muscle_set[(0, 3)] = 'psoas'
 
-            if yticks: pl.yticks(yticks)
+    # Butt muscles.
+    muscle_set[(1, 0)] = 'pect'
+    muscle_set[(1, 1)] = 'quad_fem'
+    muscle_set[(1, 2)] = 'gem'
+    muscle_set[(1, 3)] = 'peri'
 
-        pp.savefig(f)
+    # Thigh muscles.
+    muscle_set[(2, 0)] = 'grac'
+    muscle_set[(2, 1)] = 'sar'
+    muscle_set[(2, 2)] = 'tfl'
+    muscle_set[(2, 3)] = 'iliacus'
 
-    # Muscle activations
+    # Plantarflexors.
+    muscle_set[(3, 0)] = 'flex_dig'
+    muscle_set[(3, 1)] = 'flex_hal'
+    muscle_set[(3, 2)] = 'per_brev'
+    muscle_set[(3, 3)] = 'per_long'
+
+    create_3_plates('misc muscles', muscle_set, (4, 4))
+
+    # Define muscles to use for the remaining sets of plots.
+    muscle_set = dict()
+
+    muscle_set[(0, 0)] = 'glut_max1'
+    muscle_set[(0, 1)] = 'glut_max2'
+    muscle_set[(0, 2)] = 'glut_max3'
+
+    muscle_set[(1, 0)] = 'glut_med1'
+    muscle_set[(1, 1)] = 'glut_med2'
+    muscle_set[(1, 2)] = 'glut_med3'
+
+    muscle_set[(2, 0)] = 'glut_min1'
+    muscle_set[(2, 1)] = 'glut_min2'
+    muscle_set[(2, 2)] = 'glut_min3'
+    muscle_set[(2, 3)] = 'add_long'
+
+    muscle_set[(3, 0)] = 'add_mag1'
+    muscle_set[(3, 1)] = 'add_mag2'
+    muscle_set[(3, 2)] = 'add_mag3'
+    muscle_set[(3, 3)] = 'add_brev'
+
+    create_3_plates('remaining hip muscles', muscle_set, (4, 4))
+
+    # That's all, folks.
     # ------------------
-    create_plate('activations', 'states', 'activation (-)', '%s_!_activation',
-            yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
-
-    # Muscle forces
-    # -------------
-    create_plate('forces', 'Actuation_force', 'force (N)', '%s_!')
-
-    # Muscle metabolics
-    # -----------------
-    create_plate('metabolics', 'ProbeReporter_probes',
-            'metabolic consumption rate (W)', 'metabolic_power_%s_!')
-
     pp.close()
 
 
