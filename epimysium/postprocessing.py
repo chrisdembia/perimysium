@@ -986,7 +986,7 @@ def plot_activations(sim, muscles=None, interval=10, subplot_width=4,
 
 def shift_data_to_cycle(
         arbitrary_cycle_start_time, arbitrary_cycle_end_time,
-        new_cycle_start_time, time, ordinate):
+        new_cycle_start_time, time, ordinate, cut_off=False):
     """
     Takes data (ordinate) that is (1) a function of time and (2) cyclic, and
     returns data that can be plotted so that the data starts at the desired
@@ -1023,6 +1023,11 @@ def shift_data_to_cycle(
         arbitrary_cycle_end_time.
     ordinate : np.array
         The cyclic function of time, values corresponding to the times given.
+    cut_off : bool, optional (default: False)
+        Sometimes, there's a gap in the data that prevents obtaining a smooth
+        curve if the data wraps around. In order prevent misrepresenting the
+        data in plots, etc., an np.nan is placed in the appropriate place in
+        the data.
 
     Returns
     -------
@@ -1082,6 +1087,9 @@ def shift_data_to_cycle(
 
     shifted_time = np.concatenate(
             (first_portion_of_new_time, second_portion_of_new_time))
+
+    # Apply cut-off:
+    if cut_off: ordinate[old_end_index] = np.nan
 
     # Shift the ordinate.
     shifted_ordinate = np.concatenate(
@@ -1366,22 +1374,21 @@ def plot_gait_kinematics(kin, primary_leg, first_footstrike,
         raise Exception("'primary_leg' is '%s'; it must "
                 "be 'left' or 'right'." % primary_leg)
 
-    def plot_for_a_leg(coordinate_name, leg, color='k', mult=1.0):
+    def plot_for_a_leg(coordinate_name, leg, new_start, color='k', mult=1.0):
         time, angle = shift_data_to_cycle(
-                first_footstrike, second_footstrike,
-                first_footstrike,
+                first_footstrike, second_footstrike, new_start,
                 kin.cols.time,
-                getattr(kin.cols, '%s_%s' % (
-                    coordinate_name, leg[0])))
+                getattr(kin.cols, '%s_%s' % (coordinate_name, leg[0])))
         pl.plot(percent_duration(time), mult * angle, color=color,
                 label=leg)
 
     def plot_primary_leg(coordinate_name, **kwargs):
-        plot_for_a_leg(coordinate_name, primary_leg, **kwargs)
+        plot_for_a_leg(coordinate_name, primary_leg, first_footstrike,
+                **kwargs)
 
     def plot_opposite_leg(coordinate_name, **kwargs):
-        plot_for_a_leg(coordinate_name, opposite_leg, color=(0.5, 0.5, 0.5),
-                **kwargs)
+        plot_for_a_leg(coordinate_name, opposite_leg, opposite_footstrike,
+                color=(0.5, 0.5, 0.5), **kwargs)
 
     def plot_coordinate(index, name, negate=False, label=None):
         ax = pl.subplot(3, 1, index)
@@ -1459,22 +1466,21 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
         raise Exception("'primary_leg' is '%s'; it must "
                 "be 'left' or 'right'." % primary_leg)
 
-    def plot_for_a_leg(coordinate_name, leg, color='k', mult=1.0):
+    def plot_for_a_leg(coordinate_name, leg, new_start, color='k', mult=1.0):
         time, angle = shift_data_to_cycle(
-                first_footstrike, second_footstrike,
-                first_footstrike,
+                first_footstrike, second_footstrike, new_start,
                 actu.cols.time,
-                getattr(actu.cols, '%s_%s' % (
-                    coordinate_name, leg[0])))
+                getattr(actu.cols, '%s_%s' % (coordinate_name, leg[0])))
         pl.plot(percent_duration(time), mult * angle, color=color,
                 label=leg)
 
     def plot_primary_leg(coordinate_name, **kwargs):
-        plot_for_a_leg(coordinate_name, primary_leg, **kwargs)
+        plot_for_a_leg(coordinate_name, primary_leg, first_footstrike,
+                **kwargs)
 
     def plot_opposite_leg(coordinate_name, **kwargs):
-        plot_for_a_leg(coordinate_name, opposite_leg, color=(0.5, 0.5, 0.5),
-                **kwargs)
+        plot_for_a_leg(coordinate_name, opposite_leg, opposite_footstrike,
+                color=(0.5, 0.5, 0.5), **kwargs)
 
     def plot_coordinate(index, name, negate=False, label=None):
         ax = pl.subplot(3, 1, index)
@@ -1507,14 +1513,14 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
 
 
 def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
-        comparison_landmarks, muscles=None):
+        comparison_landmarks):
     """Creates a PDF report that exhaustively compares differences between
     two simulations. The following are compared:
 
-    * joint angles
-    * muscle activations
-    * muscle forces
-    * muscle metabolics
+    - joint angles
+    - muscle activations
+    - muscle forces
+    - muscle metabolics
 
     Parameters
     ----------
@@ -1527,11 +1533,12 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
     sim_landmarks : dict
         Gait landmarks for `sim`, so we can plot against percent gait cycle
         rather than against time. Keys are `first_strike`, `second_strike`,
-        `opposite_strike`, and `toeoff`.
+        `opposite_strike`, `toeoff`, and `primary_leg`. `primary_leg` is the
+        leg for which `first_strike` and `second_strike` are specified, and its
+        value is either the string 'left' or the string 'right'. `toeoff` can
+        be set to None if it is not desired to indicate toe-off on the plots.
     comparison_landmarks : dict
         Same as above, but for `comparison`.
-    muscles : list of str's, optional
-        Specify the muscles to compare. Set to None to compare all muscles.
 
     """
     # TODO joint torques
@@ -1539,65 +1546,173 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
     from matplotlib.backends.backend_pdf import PdfPages
     pp = PdfPages(fname)
 
+    # Helper methods
+    # --------------
+    primary_leg = sim_landmarks['primary_leg']
+    opposite_leg = 'left' if primary_leg == 'right' else 'right'
+
+    def plot_for_a_leg(table, landmarks, coordinate_name, leg, new_start,
+            color='k', mult=None, interval=1, cut_off=False, **kwargs):
+        time, ordinate = shift_data_to_cycle(
+                landmarks['first_strike'],
+                landmarks['second_strike'],
+                landmarks[new_start],
+                table.cols.time[::interval],
+                getattr(table.cols,
+                    coordinate_name.replace('!', leg[0]))[::interval],
+                cut_off=True)
+
+        if mult != None: ordinate *= mult
+
+        pl.plot(percent_duration(time), ordinate, color=color,
+                    label=leg, lw=1.5, **kwargs)
+
+    def plot_primary_leg(table, landmarks, coordinate_name, **kwargs):
+        plot_for_a_leg(table, landmarks, coordinate_name, primary_leg,
+                'first_strike', **kwargs)
+
+    def plot_opposite_leg(table, landmarks, coordinate_name, **kwargs):
+        plot_for_a_leg(table, landmarks, coordinate_name, opposite_leg,
+                'opposite_strike', color=(0.5, 0.5, 0.5), **kwargs)
+
+    def plot_coordinate(grid, loc, table, name, units='-', negate=False,
+            label=None, title=None, ylims=None, **kwargs):
+
+        def plot_a_series(series, landmarks, label, **kwargs):
+
+            thetable = getattr(series, table)
+
+            mult = -1.0 if negate else None
+
+            plot_primary_leg(thetable, landmarks, name, mult=mult, **kwargs)
+            plot_opposite_leg(thetable, landmarks, name, mult=mult, **kwargs)
+
+            # TODO this next line isn't so great of an idea:
+            if label: pl.ylabel('%s (%s)' % (label, units))
+            if title: pl.title(title)
+
+        def plot_landmarks(landmarks, ylims, **kwargs):
+            if landmarks['toeoff'] != None:
+                # 'pgc' is percent gait cycle
+                toeoff_pgc = percent_duration_single(landmarks['toeoff'],
+                        landmarks['first_strike'],
+                        landmarks['second_strike'])
+
+                if ylims == None: ylims = ax.get_ylim()
+                pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
+                        c=(0.5, 0.5, 0.5), zorder=0, lw=1.5, **kwargs)
+
+        ax = pl.subplot2grid(grid, loc)
+
+        plot_a_series(sim, sim_landmarks, label, **kwargs)
+        plot_a_series(comparison, comparison_landmarks, label, ls='--',
+                **kwargs)
+
+        plot_landmarks(sim_landmarks, ylims)
+        plot_landmarks(comparison_landmarks, ylims, ls='--')
+
+        pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+
     # Joint angles
     # ------------
     print 'Processing joint angles.'
-    kin = pl.figure()
+    fkin = pl.figure(figsize=(5, 12))
+    pl.suptitle('JOINT ANGLES', weight='bold')
 
-    pl.subplot(3, 1, 1)
-#    pl.plot(
+    def plot_kin(index, name, **kwargs):
+        plot_coordinate((3, 1), (index, 0), 'Kinematics_q',
+                '%s_!' % name, 'degrees', **kwargs)
 
+    plot_kin(0, 'hip_flexion', title='hip', label='flexion')
+    plot_kin(1, 'knee_angle', negate=True, label='flexion', title='knee')
+    plot_kin(2, 'ankle_angle', label='dorsiflexion', title='ankle')
+    pl.xlabel('percent gait cycle')
 
-    pp.savefig(kin)
+    pp.savefig(fkin)
+
+    # Muscles!
+    # ========
+    # Define muscles to use for the remaining sets of plots.
+    muscle_set = dict()
+
+    # Quadriceps.
+    muscle_set[(0, 0)] = 'rect_fem'
+    muscle_set[(0, 1)] = 'vas_med'
+    muscle_set[(0, 2)] = 'vas_lat'
+
+    # Hamstrings.
+    muscle_set[(1, 0)] = 'semimem'
+    muscle_set[(1, 1)] = 'semiten'
+    muscle_set[(1, 2)] = 'bifemsh'
+    muscle_set[(1, 3)] = 'bifemlh'
+
+    # Dorsiflexors.
+    muscle_set[(2, 0)] = 'tib_ant'
+    muscle_set[(2, 1)] = 'ext_dig'
+    muscle_set[(2, 2)] = 'ext_hal'
+    muscle_set[(2, 3)] = 'per_tert'
+
+    # Plantarflexors.
+    muscle_set[(3, 0)] = 'med_gas'
+    muscle_set[(3, 1)] = 'lat_gas'
+    muscle_set[(3, 2)] = 'soleus'
+    muscle_set[(3, 3)] = 'tib_post'
+    muscle_set[(2, 4)] = 'flex_dig'
+    muscle_set[(2, 5)] = 'flex_hal'
+    muscle_set[(2, 6)] = 'per_brev'
+    muscle_set[(2, 7)] = 'per_long'
+
+    muscle_names = dict()
+    muscle_names['rect_fem'] = 'rectus femoris'
+    muscle_names['vas_med'] = 'vastus medialis'
+    muscle_names['vas_lat'] = 'vastus lateralis'
+    muscle_names['semimem'] = 'semimembranosus'
+    muscle_names['semiten'] = 'semitendinosus'
+    muscle_names['bifemsh'] = 'biceps femoris short head'
+    muscle_names['bifemlh'] = 'biceps femoris long head'
+    muscle_names['tib_ant'] = 'tibialis anterior'
+    muscle_names['ext_dig'] = 'extensor digitorum'
+    muscle_names['ext_hal'] = 'extensor hallucis'
+    muscle_names['per_tert'] = 'peroneus tertius'
+    muscle_names['med_gas'] = 'medial gastrocnemius'
+    muscle_names['lat_gas'] = 'lateral gastrocnemius'
+    muscle_names['soleus'] = 'soleus'
+    muscle_names['tib_post'] = 'tibialis posterior'
+    muscle_names['flex_dig'] = 'flexor digitorum'
+    muscle_names['flex_hal'] = 'flexor hallucis'
+    muscle_names['per_brev'] = 'peroneus brevis'
+    muscle_names['per_long'] = 'peroneus longus'
+
+    def create_plate(subtitle, table, ylabel, pattern, yticks=None, **kwargs):
+        print 'Processing muscle %s.' % subtitle
+        f = pl.figure(figsize=(30, 16))
+        pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
+
+        for loc, name in muscle_set.items():
+            plot_coordinate((4, 8), loc, table,
+                    pattern % name, title=muscle_names[name], **kwargs)
+            if loc[1] == 0: pl.ylabel(ylabel)
+            if loc[0] == 3: pl.xlabel('percent gait cycle')
+
+            if yticks: pl.yticks(yticks)
+
+        pp.savefig(f)
 
     # Muscle activations
     # ------------------
-    print 'Processing muscle activations.'
-    act = pl.figure()
-
-    pp.savefig(act)
+    create_plate('activations', 'states', 'activation (-)', '%s_!_activation',
+            yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
 
     # Muscle forces
     # -------------
-    print 'Processing muscle forces.'
-    fo = pl.figure()
-
-    pp.savefig(fo)
+    create_plate('forces', 'Actuation_force', 'force (N)', '%s_!')
 
     # Muscle metabolics
     # -----------------
-    print 'Processing muscle metabolics.'
-    met = pl.figure()
-
-    pp.savefig(met)
+    create_plate('metabolics', 'ProbeReporter_probes',
+            'metabolic consumption rate (W)', 'metabolic_power_%s_!')
 
     pp.close()
-
-
-
-
-"""
-    import matplotlib.pyplot as plt                                                 
-                                                                                
-def plotGraph():                                                                
-    fig = plt.figure()                                                          
-    ### Plotting arrangements ###                                               
-    plt.plot([1, 2, 3], [43, 6,13])                                             
-    return fig                                                                  
-                                                                                
-from matplotlib.backends.backend_pdf import PdfPages                            
-                                                                                
-plot1 = plotGraph()                                                             
-plot2 = plotGraph()                                                             
-plot3 = plotGraph()                                                             
-                                                                                
-pp = PdfPages('foo.pdf')                                                        
-pp.savefig(plot1)                                                               
-pp.savefig(plot2)                                                               
-pp.savefig(plot3)                                                               
-pp.close()                                                                      
-~               
-    """
 
 
 def percent_duration_single(time, start, end):
