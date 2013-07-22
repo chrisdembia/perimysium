@@ -1065,6 +1065,17 @@ def shift_data_to_cycle(
     introduce a new gap (between "1.5" and "1.0").
 
     """
+    if new_cycle_start_time > arbitrary_cycle_end_time:
+        raise Exception('(`new_cycle_start_time` = %f) > (`arbitrary_cycle_end'
+                '_time` = %f), but we require that `new_cycle_start_time <= '
+                '`arbitrary_cycle_end_time`.' % (new_cycle_start_time,
+                    arbitrary_cycle_end_time))
+    if new_cycle_start_time < arbitrary_cycle_start_time:
+        raise Exception('(`new_cycle_start_time` = %f) < (`arbitrary_cycle'
+                '_start_time` = %f), but we require that `new_cycle_start_'
+                'time >= `arbitrary_cycle_start_time`.' % (new_cycle_start_time,
+                    arbitrary_cycle_start_time))
+
     old_start_index = nearest_index(time, arbitrary_cycle_start_time)
     old_end_index = nearest_index(time, arbitrary_cycle_end_time)
 
@@ -1551,22 +1562,51 @@ class GaitScrutinyReport:
         self._comps = list()
         self._do_plot_opposite = do_plot_opposite
 
-    def add_simulation(self, name, sim, primary_leg, first_strike, second_strike,
-            opposite_strike, toeoff=None, description=None):
+    def add_simulation(self, name, sim, primary_leg, cycle_start, cycle_end,
+            primary_strike, opposite_strike, toeoff=None, description=None):
+        """Add a simulation to the report. These are the simulations we want to
+        compare to the 'control' simulations.
+
+        Parameters
+        ----------
+        name : str
+            Short name (e.g., 'subject 1'), possibly used in legends in future
+            versions.
+        sim : tables.Group
+            The CMC output of the simulation under investigation.
+        primary_leg : str; 'left' or 'right'
+            Leg for which `first_strike` and `second_strike` are specified.
+        cycle_start : float
+            The time at which a complete gait cycle starts, within the
+            simulation.
+        cycle_end : float
+            The time at which a complete gait cycle ends, within the simulation.
+        primary_strike : float
+            A time, between cycle_start and cycle_end, at which the
+            primary leg enters stance,
+        opposite_strike : float
+            A time, between cycle_start and cycle_end, at which the
+            opposite (not primary) leg enters stance,
+        toeoff : float, optional
+            Time at which the primary foot enters swing. If given, a vertical
+            line is shown on plots to separate stance and swing.
+
+        """
         simdict = dict()
         simdict['name'] = name
         simdict['sim'] = sim
         simdict['primary_leg'] = primary_leg
-        simdict['first_strike'] = first_strike
-        simdict['second_strike'] = second_strike
+        simdict['cycle_start'] = cycle_start
+        simdict['cycle_end'] = cycle_end
+        simdict['primary_strike'] = primary_strike
         simdict['opposite_strike'] = opposite_strike
         simdict['toeoff'] = toeoff
         simdict['description'] = description
         self._sims.append(simdict)
 
-    def add_comparison_simulation(self, name, sim, primary_leg, first_strike,
-            second_strike, opposite_strike, toeoff=None, description=None,
-            ):
+    def add_comparison_simulation(self, name, sim, primary_leg, cycle_start,
+            cycle_end, primary_strike, opposite_strike, toeoff=None,
+            description=None):
         """Add a simulation to the report. These are 'control' simulations to
         which you want to compare another simulation.
 
@@ -1579,16 +1619,17 @@ class GaitScrutinyReport:
             The CMC output of the simulation under investigation.
         primary_leg : str; 'left' or 'right'
             Leg for which `first_strike` and `second_strike` are specified.
-        first_strike : float
-            Time at which the primary leg enters stance, at the beginning of
-            the gait cycle.
-        second_strike : float
-            Time at which the primary leg enters stance at the end of the gait
-            cycle.
+        cycle_start : float
+            The time at which a complete gait cycle starts, within the
+            simulation.
+        cycle_end : float
+            The time at which a complete gait cycle ends, within the simulation.
+        primary_strike : float
+            A time, between cycle_start and cycle_end, at which the
+            primary leg enters stance,
         opposite_strike : float
-            At some point between first_strike and second_strike, the
-            non-primary leg must enter stance. That's what this time is. Used
-            to plot data for the opposite leg as well.
+            A time, between cycle_start and cycle_end, at which the
+            opposite (not primary) leg enters stance,
         toeoff : float, optional
             Time at which the primary foot enters swing. If given, a vertical
             line is shown on plots to separate stance and swing.
@@ -1598,8 +1639,9 @@ class GaitScrutinyReport:
         simdict['name'] = name
         simdict['sim'] = sim
         simdict['primary_leg'] = primary_leg
-        simdict['first_strike'] = first_strike
-        simdict['second_strike'] = second_strike
+        simdict['cycle_start'] = cycle_start
+        simdict['cycle_end'] = cycle_end
+        simdict['primary_strike'] = primary_strike
         simdict['opposite_strike'] = opposite_strike
         simdict['toeoff'] = toeoff
         simdict['description'] = description
@@ -1623,8 +1665,8 @@ class GaitScrutinyReport:
         def plot_for_a_leg(table, landmarks, coordinate_name, leg, new_start,
                 color='k', mult=None, interval=1, cut_off=False, **kwargs):
             time, ordinate = shift_data_to_cycle(
-                    landmarks['first_strike'],
-                    landmarks['second_strike'],
+                    landmarks['cycle_start'],
+                    landmarks['cycle_end'],
                     landmarks[new_start],
                     table.cols.time[::interval],
                     getattr(table.cols,
@@ -1638,7 +1680,7 @@ class GaitScrutinyReport:
     
         def plot_primary_leg(table, series, coordinate_name, **kwargs):
             plot_for_a_leg(table, series, coordinate_name,
-                    series['primary_leg'], 'first_strike', **kwargs)
+                    series['primary_leg'], 'primary_strike', **kwargs)
     
         def plot_opposite_leg(table, series, coordinate_name, **kwargs):
             if series['primary_leg'] == 'right': opposite_leg = 'left'
@@ -1672,8 +1714,8 @@ class GaitScrutinyReport:
                 if series['toeoff'] != None:
                     # 'pgc' is percent gait cycle
                     toeoff_pgc = percent_duration_single(series['toeoff'],
-                            series['first_strike'],
-                            series['second_strike'])
+                            series['cycle_start'],
+                            series['cycle_end'])
     
                     if ylims == None: ylims = ax.get_ylim()
                     pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
