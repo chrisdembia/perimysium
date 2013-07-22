@@ -1187,14 +1187,13 @@ def gait_landmarks_from_grf(mot_file,
 
     if do_plot:
 
-        pl.figure(figsize=(8, 4))
+        #pl.figure(figsize=(4, 8))
         ones = np.array([1, 1])
 
         def myplot(index, label, ordinate, foot_strikes, toe_offs):
-            ax = pl.subplot(1, 2, index)
+            ax = pl.subplot(2, 1, index)
             pl.plot(time[min_idx:max_idx], ordinate[min_idx:max_idx], 'k')
-            pl.xlabel('time (s)')
-            if index == 1: pl.ylabel('vertical ground reaction force (N)')
+            pl.ylabel('vertical ground reaction force (N)')
             pl.title('%s (%i foot strikes, %i toe-offs)' % (
                 label, len(foot_strikes), len(toe_offs)))
 
@@ -1210,9 +1209,11 @@ def gait_landmarks_from_grf(mot_file,
 
 
         myplot(1, 'left foot', left_grfy, left_foot_strikes, left_toe_offs)
+        pl.legend(loc='best')
+
         myplot(2, 'right foot', right_grfy, right_foot_strikes, right_toe_offs)
 
-        pl.legend(loc='upper left', bbox_to_anchor=(1, 1))
+        pl.xlabel('time (s)')
 
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
@@ -1513,7 +1514,7 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
 
 
 def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
-        comparison_landmarks):
+        comparison_landmarks, sim_note=None, comp_note=None):
     """Creates a PDF report that exhaustively compares differences between
     two simulations. The following are compared:
 
@@ -1541,6 +1542,10 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
         be set to None if it is not desired to indicate toe-off on the plots.
     comparison_landmarks : dict
         Same as above, but for `comparison`.
+    sim_note : str, optional
+        Note describing the `sim`.
+    comp_note : str, optional
+        Note describing the `comparison`.
 
     """
     # TODO joint torques
@@ -1615,6 +1620,20 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
 
         pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
 
+    # Title page
+    # ----------
+    ftitle = pl.figure(figsize=(5, 12))
+    ax = pl.subplot(111)
+    ftitle.suptitle('OpenSim gait2392 simulation comparison', fontweight='bold')
+    desc = str()
+    if sim_note and comp_note:
+        desc = 'Comparison between %s (solid lines) and %s (dashed lines). ' % (
+                sim_note, comp_note)
+    desc += ('Black lines are for the primary limb; gray lines are for the '
+            'opposite limb, and that data is wrapped around so that it starts '
+            'with stance.')
+
+
     # Joint angles
     # ------------
     print 'Processing joint angles.'
@@ -1664,7 +1683,6 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
                     'metabolic_power_%s_!', dims, mset)
         except Exception as e:
             print e.message
-
 
     # Define muscles to use for the remaining sets of plots.
     muscle_names = dict()
