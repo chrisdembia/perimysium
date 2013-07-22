@@ -1513,10 +1513,8 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
     pl.xlabel('percent gait cycle')
 
 
-def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
-        comparison_landmarks, sim_note=None, comp_note=None,
-        do_plot_opposite=True):
-    """Creates a PDF report that exhaustively compares differences between
+class GaitScrutinyReport:
+    """A PDF report that exhaustively compares differences between
     two simulations. The following are compared:
 
     - joint angles
@@ -1526,310 +1524,407 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
 
     Expects the gait2392 muscle set, and muscle names.
 
-    Parameters
-    ----------
-    fname : str
-        Name of the file to save the PDF to.
-    sim : tables.Group
-        The CMC output of the simulation under investigation.
-    comparison : tables.Group
-        The CMC output of the simulation to which we are comparing our results.
-    sim_landmarks : dict
-        Gait landmarks for `sim`, so we can plot against percent gait cycle
-        rather than against time. Keys are `first_strike`, `second_strike`,
-        `opposite_strike`, `toeoff`, and `primary_leg`. `primary_leg` is the
-        leg for which `first_strike` and `second_strike` are specified, and its
-        value is either the string 'left' or the string 'right'. `toeoff` can
-        be set to None if it is not desired to indicate toe-off on the plots.
-    comparison_landmarks : dict
-        Same as above, but for `comparison`.
-    sim_note : str, optional
-        Note describing the `sim`.
-    comp_note : str, optional
-        Note describing the `comparison`.
-    do_plot_opposite : bool, optional (default: True)
-        Plot data for the opposite leg, shifted so that the data starts at the
-        start of stance.
-
     """
-    # TODO joint torques
+    def __init__(self, title='OpenSim gait2392 simulation comparison',
+            sim_name=None, comp_name=None, do_plot_opposite=True):
+        """
 
-    from matplotlib.backends.backend_pdf import PdfPages
-    pp = PdfPages(fname)
+        Parameters
+        ----------
+        title : str
+            Title of the report; will appear at the top of the report.
+        sim_name : str, optional
+            A brief name (e.g., 'faster') that identifies what this sim data is
+            of.
+        comp_name : str, optional
+            A brief name (e.g., 'control') that identifies what this data is of.
+        do_plot_opposite : bool, optional (default: True)
+            Plot data for the opposite leg, shifted so that the data starts at
+            the start of stance. It is expected then that opposite_strike is
+            provided for all sims added to the report.
 
-    # Helper methods
-    # --------------
-    # TODO bug: each sim may have a diff primary leg.
-    primary_leg = sim_landmarks['primary_leg']
-    opposite_leg = 'left' if primary_leg == 'right' else 'right'
+        """
+        self._title = title
+        self._sim_name = sim_name
+        self._comp_name = comp_name
+        self._sims = list()
+        self._comps = list()
+        self._do_plot_opposite = do_plot_opposite
 
-    def plot_for_a_leg(table, landmarks, coordinate_name, leg, new_start,
-            color='k', mult=None, interval=1, cut_off=False, **kwargs):
-        time, ordinate = shift_data_to_cycle(
-                landmarks['first_strike'],
-                landmarks['second_strike'],
-                landmarks[new_start],
-                table.cols.time[::interval],
-                getattr(table.cols,
-                    coordinate_name.replace('!', leg[0]))[::interval],
-                cut_off=True)
+    def add_simulation(self, name, sim, primary_leg, first_strike, second_strike,
+            opposite_strike, toeoff=None, description=None):
+        simdict = dict()
+        simdict['name'] = name
+        simdict['sim'] = sim
+        simdict['primary_leg'] = primary_leg
+        simdict['first_strike'] = first_strike
+        simdict['second_strike'] = second_strike
+        simdict['opposite_strike'] = opposite_strike
+        simdict['toeoff'] = toeoff
+        simdict['description'] = description
+        self._sims.append(simdict)
 
-        if mult != None: ordinate *= mult
+    def add_comparison_simulation(self, name, sim, primary_leg, first_strike,
+            second_strike, opposite_strike, toeoff=None, description=None,
+            ):
+        """Add a simulation to the report. These are 'control' simulations to
+        which you want to compare another simulation.
 
-        pl.plot(percent_duration(time), ordinate, color=color,
-                    label=leg, lw=1.5, **kwargs)
+        Parameters
+        ----------
+        name : str
+            Short name (e.g., 'subject 1'), possibly used in legends in future
+            versions.
+        sim : tables.Group
+            The CMC output of the simulation under investigation.
+        primary_leg : str; 'left' or 'right'
+            Leg for which `first_strike` and `second_strike` are specified.
+        first_strike : float
+            Time at which the primary leg enters stance, at the beginning of
+            the gait cycle.
+        second_strike : float
+            Time at which the primary leg enters stance at the end of the gait
+            cycle.
+        opposite_strike : float
+            At some point between first_strike and second_strike, the
+            non-primary leg must enter stance. That's what this time is. Used
+            to plot data for the opposite leg as well.
+        toeoff : float, optional
+            Time at which the primary foot enters swing. If given, a vertical
+            line is shown on plots to separate stance and swing.
 
-    def plot_primary_leg(table, landmarks, coordinate_name, **kwargs):
-        plot_for_a_leg(table, landmarks, coordinate_name, primary_leg,
-                'first_strike', **kwargs)
+        """
+        simdict = dict()
+        simdict['name'] = name
+        simdict['sim'] = sim
+        simdict['primary_leg'] = primary_leg
+        simdict['first_strike'] = first_strike
+        simdict['second_strike'] = second_strike
+        simdict['opposite_strike'] = opposite_strike
+        simdict['toeoff'] = toeoff
+        simdict['description'] = description
+        self._comps.append(simdict)
 
-    def plot_opposite_leg(table, landmarks, coordinate_name, **kwargs):
-        plot_for_a_leg(table, landmarks, coordinate_name, opposite_leg,
-                'opposite_strike', color=(0.5, 0.5, 0.5), **kwargs)
+    def generate(self, fname):
+        """Generates the report, and prints it to a PDF.
 
-    def plot_coordinate(grid, loc, table, name, units='-', negate=False,
-            label=None, title=None, ylims=None, **kwargs):
+        Parameters
+        ----------
+        fname : str
+            Name of the file to save the PDF to.
+        """
+        # TODO joint torques
+    
+        from matplotlib.backends.backend_pdf import PdfPages
+        pp = PdfPages(fname)
+    
+        # Helper methods
+        # --------------
+        def plot_for_a_leg(table, landmarks, coordinate_name, leg, new_start,
+                color='k', mult=None, interval=1, cut_off=False, **kwargs):
+            time, ordinate = shift_data_to_cycle(
+                    landmarks['first_strike'],
+                    landmarks['second_strike'],
+                    landmarks[new_start],
+                    table.cols.time[::interval],
+                    getattr(table.cols,
+                        coordinate_name.replace('!', leg[0]))[::interval],
+                    cut_off=True)
+    
+            if mult != None: ordinate *= mult
+    
+            pl.plot(percent_duration(time), ordinate, color=color,
+                        label=leg, lw=1.5, **kwargs)
+    
+        def plot_primary_leg(table, series, coordinate_name, **kwargs):
+            plot_for_a_leg(table, series, coordinate_name,
+                    series['primary_leg'], 'first_strike', **kwargs)
+    
+        def plot_opposite_leg(table, series, coordinate_name, **kwargs):
+            if series['primary_leg'] == 'right': opposite_leg = 'left'
+            elif series['primary_leg'] == 'left': opposite_leg = 'right'
+            else: raise Exception(
+                    "'primary_leg' is %s; must be 'right' or 'left'." % (
+                        series['primary_leg']))
 
-        def plot_a_series(series, landmarks, label, **kwargs):
+            plot_for_a_leg(table, series, coordinate_name, opposite_leg,
+                    'opposite_strike', color=(0.5, 0.5, 0.5), **kwargs)
+    
+        def plot_coordinate(grid, loc, table, name, units='-', negate=False,
+                label=None, title=None, ylims=None, **kwargs):
+    
+            def plot_a_series(series, label, **kwargs):
+    
+                thetable = getattr(series['sim'], table)
+    
+                mult = -1.0 if negate else None
+    
+                plot_primary_leg(thetable, series, name, mult=mult, **kwargs)
+                if self._do_plot_opposite:
+                    plot_opposite_leg(thetable, series, name, mult=mult,
+                            **kwargs)
+    
+                # TODO this next line isn't so great of an idea:
+                if label: pl.ylabel('%s (%s)' % (label, units))
+                if title: pl.title(title)
+    
+            def plot_landmarks(series, ylims, **kwargs):
+                if series['toeoff'] != None:
+                    # 'pgc' is percent gait cycle
+                    toeoff_pgc = percent_duration_single(series['toeoff'],
+                            series['first_strike'],
+                            series['second_strike'])
+    
+                    if ylims == None: ylims = ax.get_ylim()
+                    pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
+                            c=(0.8, 0.8, 0.8), zorder=0, lw=1.5, **kwargs)
+    
+            ax = pl.subplot2grid(grid, loc)
+    
+            # Add a curve to this plot for each sim and each comp.
+            for comp in self._comps:
+                plot_a_series(comp, label, ls='--', **kwargs)
+            for sim in self._sims:
+                plot_a_series(sim, label, **kwargs)
+    
+            # Must be done after all other plotting, so that we use the correct
+            # ylims.
+            for comp in self._comps:
+                plot_landmarks(comp, ylims, ls='--')
+            for sim in self._sims:
+                plot_landmarks(sim, ylims)
+    
+            pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+    
+        # Title page
+        # ----------
+        ftitle = pl.figure()
+        ax = pl.subplot(111)
+        pl.axis('off')
+        ftitle.suptitle(self._title, fontweight='bold')
+        desc = str()
+        if self._sim_name and self._comp_name:
+            desc = ('Comparison between:\n- %s (solid lines), '
+                    'and\n- %s (dashed lines). \n' % (
+                    self._sim_name, self._comp_name))
+        desc += """
+        Black lines are for the primary limb; gray lines are for the
+        opposite limb, and that data is wrapped around so that it starts
+        with stance."""
+    
+        pl.text(0, 0.7, desc)
+        pp.savefig(ftitle)
+    
+        # Joint angles
+        # ------------
+        print 'Processing joint angles.'
+        fkin = pl.figure(figsize=(5, 12))
+        pl.suptitle('JOINT ANGLES', weight='bold')
+    
+        def plot_kin(index, name, **kwargs):
+            plot_coordinate((3, 1), (index, 0), 'Kinematics_q',
+                    '%s_!' % name, 'degrees', **kwargs)
+    
+        plot_kin(0, 'hip_flexion', title='hip', label='flexion')
+        plot_kin(1, 'knee_angle', negate=True, label='flexion', title='knee')
+        plot_kin(2, 'ankle_angle', label='dorsiflexion', title='ankle')
+        pl.xlabel('percent gait cycle')
+    
+        pp.savefig(fkin)
+    
+        # Muscles!
+        # ========
+        def create_plate(subtitle, table, ylabel, pattern, dims, mset,
+                yticks=None, **kwargs):
+            print 'Processing muscle %s.' % subtitle
+            f = pl.figure(figsize=(4 * dims[0], 4 * dims[1]))
+            pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
+    
+            for loc, name in mset.items():
+                plot_coordinate(dims, loc, table,
+                        pattern % name, title=muscle_names[name], **kwargs)
+                if loc[1] == 0: pl.ylabel(ylabel)
+                if loc[0] == 3: pl.xlabel('percent gait cycle')
+    
+                if yticks: pl.yticks(yticks)
+    
+            pp.savefig(f)
+    
+        def create_3_plates(subname, mset, dims):
+            create_plate('activations (%s)' % subname,
+                    'states', 'activation (-)', '%s_!_activation',
+                    dims, mset,
+                    yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
+            create_plate('forces (%s)' % subname,
+                    'Actuation_force', 'force (N)', '%s_!', dims, mset)
+            try:
+                create_plate('metabolics (%s)' % subname,
+                        'ProbeReporter_probes',
+                        'metabolic consumption rate (W)',
+                        'metabolic_power_%s_!', dims, mset)
+            except Exception as e:
+                print e.message
+    
+        # Define muscles to use for the remaining sets of plots.
+        muscle_names = dict()
+        muscle_names['rect_fem'] = 'rectus femoris'
+        muscle_names['vas_med'] = 'vastus medialis'
+        muscle_names['vas_int'] = 'vastus intermedius'
+        muscle_names['vas_lat'] = 'vastus lateralis'
+        muscle_names['semimem'] = 'semimembranosus'
+        muscle_names['semiten'] = 'semitendinosus'
+        muscle_names['bifemsh'] = 'biceps femoris short head'
+        muscle_names['bifemlh'] = 'biceps femoris long head'
+        muscle_names['tib_ant'] = 'tibialis anterior'
+        muscle_names['ext_dig'] = 'extensor digitorum'
+        muscle_names['ext_hal'] = 'extensor hallucis'
+        muscle_names['per_tert'] = 'peroneus tertius'
+        muscle_names['med_gas'] = 'medial gastrocnemius'
+        muscle_names['lat_gas'] = 'lateral gastrocnemius'
+        muscle_names['soleus'] = 'soleus'
+        muscle_names['tib_post'] = 'tibialis posterior'
+    
+        muscle_names['flex_dig'] = 'flexor digitorum'
+        muscle_names['flex_hal'] = 'flexor hallucis'
+        muscle_names['per_brev'] = 'peroneus brevis'
+        muscle_names['per_long'] = 'peroneus longus'
+        muscle_names['ercspn'] = 'erector spinae'
+        muscle_names['extobl'] = 'external obliques'
+        muscle_names['intobl'] = 'internal obliques'
+        muscle_names['pect'] = 'pectineus'
+        muscle_names['quad_fem'] = 'quadratus femoris'
+        muscle_names['gem'] = 'gemellus'
+        muscle_names['peri'] = 'periformis'
+        muscle_names['grac'] = 'gracilis'
+        muscle_names['sar'] = 'sartorius'
+        muscle_names['tfl'] = 'tensor fascia latae'
+        muscle_names['iliacus'] = 'iliacus'
+        muscle_names['psoas'] = 'psoas major'
+    
+        muscle_names['glut_max1'] = 'gluteus maximus 1'
+        muscle_names['glut_max2'] = 'gluteus maximus 2'
+        muscle_names['glut_max3'] = 'gluteus maximus 3'
+        muscle_names['glut_med1'] = 'gluteus medius 1'
+        muscle_names['glut_med2'] = 'gluteus medius 2'
+        muscle_names['glut_med3'] = 'gluteus medius 3'
+        muscle_names['glut_min1'] = 'gluteus minimus 1'
+        muscle_names['glut_min2'] = 'gluteus minimus 2'
+        muscle_names['glut_min3'] = 'gluteus minimus 3'
+        muscle_names['add_mag1'] = 'adductor magnus 1'
+        muscle_names['add_mag2'] = 'adductor magnus 2'
+        muscle_names['add_mag3'] = 'adductor magnus 3'
+        muscle_names['add_long'] = 'adductor longus'
+        muscle_names['add_brev'] = 'adductor brevis'
+    
+        mset1 = dict()
+    
+        # Quadriceps.
+        mset1[(0, 0)] = 'rect_fem'
+        mset1[(0, 1)] = 'vas_med'
+        mset1[(0, 2)] = 'vas_int'
+        mset1[(0, 3)] = 'vas_lat'
+    
+        # Hamstrings.
+        mset1[(1, 0)] = 'semimem'
+        mset1[(1, 1)] = 'semiten'
+        mset1[(1, 2)] = 'bifemsh'
+        mset1[(1, 3)] = 'bifemlh'
+    
+        # Dorsiflexors.
+        mset1[(2, 0)] = 'tib_ant'
+        mset1[(2, 1)] = 'ext_dig'
+        mset1[(2, 2)] = 'ext_hal'
+        mset1[(2, 3)] = 'per_tert'
+    
+        # Plantarflexors.
+        mset1[(3, 0)] = 'med_gas'
+        mset1[(3, 1)] = 'lat_gas'
+        mset1[(3, 2)] = 'soleus'
+        mset1[(3, 3)] = 'tib_post'
+    
+        # Define muscles to use for the remaining sets of plots.
+        mset2 = dict()
+    
+        # Torso.
+        mset2[(0, 0)] = 'ercspn'
+        mset2[(0, 1)] = 'extobl'
+        mset2[(0, 2)] = 'intobl'
+        mset2[(0, 3)] = 'psoas'
+    
+        # Butt muscles.
+        mset2[(1, 0)] = 'pect'
+        mset2[(1, 1)] = 'quad_fem'
+        mset2[(1, 2)] = 'gem'
+        mset2[(1, 3)] = 'peri'
+    
+        # Thigh muscles.
+        mset2[(2, 0)] = 'grac'
+        mset2[(2, 1)] = 'sar'
+        mset2[(2, 2)] = 'tfl'
+        mset2[(2, 3)] = 'iliacus'
+    
+        # Plantarflexors.
+        mset2[(3, 0)] = 'flex_dig'
+        mset2[(3, 1)] = 'flex_hal'
+        mset2[(3, 2)] = 'per_brev'
+        mset2[(3, 3)] = 'per_long'
+    
+        # Define muscles to use for the remaining sets of plots.
+        mset3 = dict()
+    
+        mset3[(0, 0)] = 'glut_max1'
+        mset3[(0, 1)] = 'glut_max2'
+        mset3[(0, 2)] = 'glut_max3'
+    
+        mset3[(1, 0)] = 'glut_med1'
+        mset3[(1, 1)] = 'glut_med2'
+        mset3[(1, 2)] = 'glut_med3'
+    
+        mset3[(2, 0)] = 'glut_min1'
+        mset3[(2, 1)] = 'glut_min2'
+        mset3[(2, 2)] = 'glut_min3'
+        mset3[(2, 3)] = 'add_long'
+    
+        mset3[(3, 0)] = 'add_mag1'
+        mset3[(3, 1)] = 'add_mag2'
+        mset3[(3, 2)] = 'add_mag3'
+        mset3[(3, 3)] = 'add_brev'
+    
+        def create_3_plates(subname, mset, dims):
+            try:
+                create_plate('metabolics (%s)' % subname,
+                        'ProbeReporter_probes',
+                        'metabolic consumption rate (W)',
+                        'metabolic_power_%s_!', dims, mset)
+            except Exception as e:
+                print e.message
 
-            thetable = getattr(series, table)
+        msubnames = ['key locomotion muscles', 'misc muscles',
+                'remaining hip muscles']
+        msets = [mset1, mset2, mset3]
 
-            mult = -1.0 if negate else None
+        for i in range(3):
+            create_plate('activations (%s)' % msubnames[i],
+                    'states', 'activation (-)', '%s_!_activation',
+                    (4, 4), msets[i],
+                    yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
 
-            plot_primary_leg(thetable, landmarks, name, mult=mult, **kwargs)
-            if do_plot_opposite:
-                plot_opposite_leg(thetable, landmarks, name, mult=mult,
-                        **kwargs)
+        for i in range(3):
+            create_plate('forces (%s)' % msubnames[i],
+                    'Actuation_force', 'force (N)', '%s_!', (4, 4), msets[i])
 
-            # TODO this next line isn't so great of an idea:
-            if label: pl.ylabel('%s (%s)' % (label, units))
-            if title: pl.title(title)
-
-        def plot_landmarks(landmarks, ylims, **kwargs):
-            if landmarks['toeoff'] != None:
-                # 'pgc' is percent gait cycle
-                toeoff_pgc = percent_duration_single(landmarks['toeoff'],
-                        landmarks['first_strike'],
-                        landmarks['second_strike'])
-
-                if ylims == None: ylims = ax.get_ylim()
-                pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
-                        c=(0.8, 0.8, 0.8), zorder=0, lw=1.5, **kwargs)
-
-        ax = pl.subplot2grid(grid, loc)
-
-        plot_a_series(sim, sim_landmarks, label, **kwargs)
-        plot_a_series(comparison, comparison_landmarks, label, ls='--',
-                **kwargs)
-
-        plot_landmarks(sim_landmarks, ylims)
-        plot_landmarks(comparison_landmarks, ylims, ls='--')
-
-        pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
-
-    # Title page
-    # ----------
-    ftitle = pl.figure()
-    ax = pl.subplot(111)
-    pl.axis('off')
-    ftitle.suptitle('OpenSim gait2392 simulation comparison', fontweight='bold')
-    desc = str()
-    if sim_note and comp_note:
-        desc = ('Comparison between:\n- %s (solid lines), '
-                'and\n- %s (dashed lines). \n' % (
-                sim_note, comp_note))
-    desc += """
-    Black lines are for the primary limb; gray lines are for the
-    opposite limb, and that data is wrapped around so that it starts
-    with stance."""
-
-    pl.text(0, 0.7, desc)
-    pp.savefig(ftitle)
-
-    # Joint angles
-    # ------------
-    print 'Processing joint angles.'
-    fkin = pl.figure(figsize=(5, 12))
-    pl.suptitle('JOINT ANGLES', weight='bold')
-
-    def plot_kin(index, name, **kwargs):
-        plot_coordinate((3, 1), (index, 0), 'Kinematics_q',
-                '%s_!' % name, 'degrees', **kwargs)
-
-    plot_kin(0, 'hip_flexion', title='hip', label='flexion')
-    plot_kin(1, 'knee_angle', negate=True, label='flexion', title='knee')
-    plot_kin(2, 'ankle_angle', label='dorsiflexion', title='ankle')
-    pl.xlabel('percent gait cycle')
-
-    pp.savefig(fkin)
-
-    # Muscles!
-    # ========
-    def create_plate(subtitle, table, ylabel, pattern, dims, mset, yticks=None,
-            **kwargs):
-        print 'Processing muscle %s.' % subtitle
-        f = pl.figure(figsize=(4 * dims[0], 4 * dims[1]))
-        pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
-
-        for loc, name in mset.items():
-            plot_coordinate(dims, loc, table,
-                    pattern % name, title=muscle_names[name], **kwargs)
-            if loc[1] == 0: pl.ylabel(ylabel)
-            if loc[0] == 3: pl.xlabel('percent gait cycle')
-
-            if yticks: pl.yticks(yticks)
-
-        pp.savefig(f)
-
-    def create_3_plates(subname, mset, dims):
-        create_plate('activations (%s)' % subname,
-                'states', 'activation (-)', '%s_!_activation',
-                dims, mset,
-                yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
-        create_plate('forces (%s)' % subname,
-                'Actuation_force', 'force (N)', '%s_!', dims, mset)
         try:
-            create_plate('metabolics (%s)' % subname,
-                    'ProbeReporter_probes',
-                    'metabolic consumption rate (W)',
-                    'metabolic_power_%s_!', dims, mset)
+            for i in range(3):
+                create_plate('metabolics (%s)' % msubnames[i],
+                        'ProbeReporter_probes',
+                        'metabolic consumption rate (W)',
+                        'metabolic_power_%s_!', (4, 4), msets[i])
         except Exception as e:
             print e.message
-
-    # Define muscles to use for the remaining sets of plots.
-    muscle_names = dict()
-    muscle_names['rect_fem'] = 'rectus femoris'
-    muscle_names['vas_med'] = 'vastus medialis'
-    muscle_names['vas_int'] = 'vastus intermedius'
-    muscle_names['vas_lat'] = 'vastus lateralis'
-    muscle_names['semimem'] = 'semimembranosus'
-    muscle_names['semiten'] = 'semitendinosus'
-    muscle_names['bifemsh'] = 'biceps femoris short head'
-    muscle_names['bifemlh'] = 'biceps femoris long head'
-    muscle_names['tib_ant'] = 'tibialis anterior'
-    muscle_names['ext_dig'] = 'extensor digitorum'
-    muscle_names['ext_hal'] = 'extensor hallucis'
-    muscle_names['per_tert'] = 'peroneus tertius'
-    muscle_names['med_gas'] = 'medial gastrocnemius'
-    muscle_names['lat_gas'] = 'lateral gastrocnemius'
-    muscle_names['soleus'] = 'soleus'
-    muscle_names['tib_post'] = 'tibialis posterior'
-
-    muscle_names['flex_dig'] = 'flexor digitorum'
-    muscle_names['flex_hal'] = 'flexor hallucis'
-    muscle_names['per_brev'] = 'peroneus brevis'
-    muscle_names['per_long'] = 'peroneus longus'
-    muscle_names['ercspn'] = 'erector spinae'
-    muscle_names['extobl'] = 'external obliques'
-    muscle_names['intobl'] = 'internal obliques'
-    muscle_names['pect'] = 'pectineus'
-    muscle_names['quad_fem'] = 'quadratus femoris'
-    muscle_names['gem'] = 'gemellus'
-    muscle_names['peri'] = 'periformis'
-    muscle_names['grac'] = 'gracilis'
-    muscle_names['sar'] = 'sartorius'
-    muscle_names['tfl'] = 'tensor fascia latae'
-    muscle_names['iliacus'] = 'iliacus'
-    muscle_names['psoas'] = 'psoas major'
-
-    muscle_names['glut_max1'] = 'gluteus maximus 1'
-    muscle_names['glut_max2'] = 'gluteus maximus 2'
-    muscle_names['glut_max3'] = 'gluteus maximus 3'
-    muscle_names['glut_med1'] = 'gluteus medius 1'
-    muscle_names['glut_med2'] = 'gluteus medius 2'
-    muscle_names['glut_med3'] = 'gluteus medius 3'
-    muscle_names['glut_min1'] = 'gluteus minimus 1'
-    muscle_names['glut_min2'] = 'gluteus minimus 2'
-    muscle_names['glut_min3'] = 'gluteus minimus 3'
-    muscle_names['add_mag1'] = 'adductor magnus 1'
-    muscle_names['add_mag2'] = 'adductor magnus 2'
-    muscle_names['add_mag3'] = 'adductor magnus 3'
-    muscle_names['add_long'] = 'adductor longus'
-    muscle_names['add_brev'] = 'adductor brevis'
-
-    muscle_set = dict()
-
-    # Quadriceps.
-    muscle_set[(0, 0)] = 'rect_fem'
-    muscle_set[(0, 1)] = 'vas_med'
-    muscle_set[(0, 2)] = 'vas_int'
-    muscle_set[(0, 3)] = 'vas_lat'
-
-    # Hamstrings.
-    muscle_set[(1, 0)] = 'semimem'
-    muscle_set[(1, 1)] = 'semiten'
-    muscle_set[(1, 2)] = 'bifemsh'
-    muscle_set[(1, 3)] = 'bifemlh'
-
-    # Dorsiflexors.
-    muscle_set[(2, 0)] = 'tib_ant'
-    muscle_set[(2, 1)] = 'ext_dig'
-    muscle_set[(2, 2)] = 'ext_hal'
-    muscle_set[(2, 3)] = 'per_tert'
-
-    # Plantarflexors.
-    muscle_set[(3, 0)] = 'med_gas'
-    muscle_set[(3, 1)] = 'lat_gas'
-    muscle_set[(3, 2)] = 'soleus'
-    muscle_set[(3, 3)] = 'tib_post'
-
-    create_3_plates('key locomotion muscles', muscle_set, (4, 4))
-
-    # Define muscles to use for the remaining sets of plots.
-    muscle_set = dict()
-
-    # Torso.
-    muscle_set[(0, 0)] = 'ercspn'
-    muscle_set[(0, 1)] = 'extobl'
-    muscle_set[(0, 2)] = 'intobl'
-    muscle_set[(0, 3)] = 'psoas'
-
-    # Butt muscles.
-    muscle_set[(1, 0)] = 'pect'
-    muscle_set[(1, 1)] = 'quad_fem'
-    muscle_set[(1, 2)] = 'gem'
-    muscle_set[(1, 3)] = 'peri'
-
-    # Thigh muscles.
-    muscle_set[(2, 0)] = 'grac'
-    muscle_set[(2, 1)] = 'sar'
-    muscle_set[(2, 2)] = 'tfl'
-    muscle_set[(2, 3)] = 'iliacus'
-
-    # Plantarflexors.
-    muscle_set[(3, 0)] = 'flex_dig'
-    muscle_set[(3, 1)] = 'flex_hal'
-    muscle_set[(3, 2)] = 'per_brev'
-    muscle_set[(3, 3)] = 'per_long'
-
-    create_3_plates('misc muscles', muscle_set, (4, 4))
-
-    # Define muscles to use for the remaining sets of plots.
-    muscle_set = dict()
-
-    muscle_set[(0, 0)] = 'glut_max1'
-    muscle_set[(0, 1)] = 'glut_max2'
-    muscle_set[(0, 2)] = 'glut_max3'
-
-    muscle_set[(1, 0)] = 'glut_med1'
-    muscle_set[(1, 1)] = 'glut_med2'
-    muscle_set[(1, 2)] = 'glut_med3'
-
-    muscle_set[(2, 0)] = 'glut_min1'
-    muscle_set[(2, 1)] = 'glut_min2'
-    muscle_set[(2, 2)] = 'glut_min3'
-    muscle_set[(2, 3)] = 'add_long'
-
-    muscle_set[(3, 0)] = 'add_mag1'
-    muscle_set[(3, 1)] = 'add_mag2'
-    muscle_set[(3, 2)] = 'add_mag3'
-    muscle_set[(3, 3)] = 'add_brev'
-
-    create_3_plates('remaining hip muscles', muscle_set, (4, 4))
-
-    # That's all, folks.
-    # ------------------
-    pp.close()
+    
+        # That's all, folks.
+        # ------------------
+        pp.close()
 
 
 def percent_duration_single(time, start, end):
