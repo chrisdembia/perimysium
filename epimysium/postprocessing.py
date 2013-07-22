@@ -1514,7 +1514,8 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
 
 
 def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
-        comparison_landmarks, sim_note=None, comp_note=None):
+        comparison_landmarks, sim_note=None, comp_note=None,
+        do_plot_opposite=True):
     """Creates a PDF report that exhaustively compares differences between
     two simulations. The following are compared:
 
@@ -1546,6 +1547,9 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
         Note describing the `sim`.
     comp_note : str, optional
         Note describing the `comparison`.
+    do_plot_opposite : bool, optional (default: True)
+        Plot data for the opposite leg, shifted so that the data starts at the
+        start of stance.
 
     """
     # TODO joint torques
@@ -1555,6 +1559,7 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
 
     # Helper methods
     # --------------
+    # TODO bug: each sim may have a diff primary leg.
     primary_leg = sim_landmarks['primary_leg']
     opposite_leg = 'left' if primary_leg == 'right' else 'right'
 
@@ -1592,7 +1597,9 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
             mult = -1.0 if negate else None
 
             plot_primary_leg(thetable, landmarks, name, mult=mult, **kwargs)
-            plot_opposite_leg(thetable, landmarks, name, mult=mult, **kwargs)
+            if do_plot_opposite:
+                plot_opposite_leg(thetable, landmarks, name, mult=mult,
+                        **kwargs)
 
             # TODO this next line isn't so great of an idea:
             if label: pl.ylabel('%s (%s)' % (label, units))
@@ -1622,17 +1629,22 @@ def gait_scrutiny_report(fname, sim, comparison, sim_landmarks,
 
     # Title page
     # ----------
-    ftitle = pl.figure(figsize=(5, 12))
+    ftitle = pl.figure()
     ax = pl.subplot(111)
+    pl.axis('off')
     ftitle.suptitle('OpenSim gait2392 simulation comparison', fontweight='bold')
     desc = str()
     if sim_note and comp_note:
-        desc = 'Comparison between %s (solid lines) and %s (dashed lines). ' % (
-                sim_note, comp_note)
-    desc += ('Black lines are for the primary limb; gray lines are for the '
-            'opposite limb, and that data is wrapped around so that it starts '
-            'with stance.')
+        desc = ('Comparison between:\n- %s (solid lines), '
+                'and\n- %s (dashed lines). \n' % (
+                sim_note, comp_note))
+    desc += """
+    Black lines are for the primary limb; gray lines are for the
+    opposite limb, and that data is wrapped around so that it starts
+    with stance."""
 
+    pl.text(0, 0.7, desc)
+    pp.savefig(ftitle)
 
     # Joint angles
     # ------------
