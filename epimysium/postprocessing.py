@@ -1537,7 +1537,8 @@ class GaitScrutinyReport:
 
     """
     def __init__(self, title='OpenSim gait2392 simulation comparison',
-            sim_name=None, comp_name=None, do_plot_opposite=True):
+            sim_name=None, comp_name=None, do_plot_opposite=True,
+            max_muscle_force=None, max_metabolic_power=None):
         """
 
         Parameters
@@ -1553,6 +1554,12 @@ class GaitScrutinyReport:
             Plot data for the opposite leg, shifted so that the data starts at
             the start of stance. It is expected then that opposite_strike is
             provided for all sims added to the report.
+        max_muscle_force : float, optional
+            Set the ymax value for all muscle force plots to this value. This
+            is to make it easier to make comparisons across muscles.
+        max_metabolic_power : float, optional
+            Set the ymax value for all muscle metabolic consumption rate to
+            this value.
 
         """
         self._title = title
@@ -1561,6 +1568,8 @@ class GaitScrutinyReport:
         self._sims = list()
         self._comps = list()
         self._do_plot_opposite = do_plot_opposite
+        self._max_muscle_force = max_muscle_force
+        self._max_metabolic_power = max_metabolic_power
 
     def add_simulation(self, name, sim, primary_leg, cycle_start, cycle_end,
             primary_strike, opposite_strike, toeoff=None, description=None):
@@ -1631,8 +1640,9 @@ class GaitScrutinyReport:
             A time, between cycle_start and cycle_end, at which the
             opposite (not primary) leg enters stance,
         toeoff : float, optional
-            Time at which the primary foot enters swing. If given, a vertical
-            line is shown on plots to separate stance and swing.
+            Time at which the primary foot exits stance and enters swing. If
+            given, a vertical line is shown on plots to separate stance and
+            swing.
 
         """
         simdict = dict()
@@ -1712,10 +1722,16 @@ class GaitScrutinyReport:
     
             def plot_landmarks(series, ylims, **kwargs):
                 if series['toeoff'] != None:
+                    duration = series['cycle_end'] - series['cycle_start']
                     # 'pgc' is percent gait cycle
-                    toeoff_pgc = percent_duration_single(series['toeoff'],
-                            series['cycle_start'],
-                            series['cycle_end'])
+                    if series['toeoff'] > series['primary_strike']:
+                        toeoff_pgc = percent_duration_single(series['toeoff'],
+                                series['primary_strike'], duration +
+                                series['primary_strike'])
+                    else:
+                        chunk1 = series['cycle_end'] - series['primary_strike']
+                        chunk2 = series['toeoff'] - series['cycle_start']
+                        toeoff_pgc = (chunk1 + chunk2) / duration * 100.0
     
                     if ylims == None: ylims = ax.get_ylim()
                     pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
@@ -1791,21 +1807,6 @@ class GaitScrutinyReport:
                 if yticks: pl.yticks(yticks)
     
             pp.savefig(f)
-    
-        def create_3_plates(subname, mset, dims):
-            create_plate('activations (%s)' % subname,
-                    'states', 'activation (-)', '%s_!_activation',
-                    dims, mset,
-                    yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
-            create_plate('forces (%s)' % subname,
-                    'Actuation_force', 'force (N)', '%s_!', dims, mset)
-            try:
-                create_plate('metabolics (%s)' % subname,
-                        'ProbeReporter_probes',
-                        'metabolic consumption rate (W)',
-                        'metabolic_power_%s_!', dims, mset)
-            except Exception as e:
-                print e.message
     
         # Define muscles to use for the remaining sets of plots.
         muscle_names = dict()
@@ -1931,15 +1932,6 @@ class GaitScrutinyReport:
         mset3[(3, 1)] = 'add_mag2'
         mset3[(3, 2)] = 'add_mag3'
         mset3[(3, 3)] = 'add_brev'
-    
-        def create_3_plates(subname, mset, dims):
-            try:
-                create_plate('metabolics (%s)' % subname,
-                        'ProbeReporter_probes',
-                        'metabolic consumption rate (W)',
-                        'metabolic_power_%s_!', dims, mset)
-            except Exception as e:
-                print e.message
 
         msubnames = ['key locomotion muscles', 'misc muscles',
                 'remaining hip muscles']
@@ -1952,15 +1944,22 @@ class GaitScrutinyReport:
                     yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
 
         for i in range(3):
+            if self._max_muscle_force: ylims = (0, self._max_muscle_force)
+            else: ylims = None
             create_plate('forces (%s)' % msubnames[i],
-                    'Actuation_force', 'force (N)', '%s_!', (4, 4), msets[i])
+                    'Actuation_force', 'force (N)', '%s_!', (4, 4), msets[i],
+                    ylims=ylims)
 
         try:
             for i in range(3):
+                if self._max_metabolic_power:
+                    ylims = (0, self._max_metabolic_power)
+                else: ylims = None
                 create_plate('metabolics (%s)' % msubnames[i],
                         'ProbeReporter_probes',
                         'metabolic consumption rate (W)',
-                        'metabolic_power_%s_!', (4, 4), msets[i])
+                        'metabolic_power_%s_!', (4, 4), msets[i],
+                        ylims=ylims)
         except Exception as e:
             print e.message
     
