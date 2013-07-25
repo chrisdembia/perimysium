@@ -88,32 +88,8 @@ def _splitall(path):
             allparts.insert(0, parts[1])
     return allparts
 
-def cmc_input_files(cmc_setup_fpath):
-    """Given a CMC setup file, returns all necessary input files. Assumes only
-    one force_set_files.
 
-    Parameters
-    ----------
-    cmc_setup_fpath : str
-        Path to a CMC setup file.
-
-    Returns
-    -------
-    input_fpaths : dict of str's
-        The keys are:
-        - model
-        - tasks
-        - actuators
-        - controlconstraints
-        - desired_kinematics
-        - external_loads
-        - force_plates
-        - extload_kinematics
-
-    """
-
-
-def copy_cmc_inputs(cmc_setup_file, destination, replace=None):
+def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None):
     """Given a CMC setup file, copies all files necessary to run CMC over to
     `destination`. All files necessary to run CMC are stored in the same
     directory. The CMC setup file and the external loads files are edited so
