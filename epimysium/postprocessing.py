@@ -1538,7 +1538,8 @@ class GaitScrutinyReport:
     """
     def __init__(self, title='OpenSim gait2392 simulation comparison',
             sim_name=None, comp_name=None, do_plot_opposite=True,
-            max_muscle_force=None, max_metabolic_power=None):
+            do_plot_joint_torques=False, max_muscle_force=None,
+            max_muscle_power=None, max_metabolic_rate=None):
         """
 
         Parameters
@@ -1554,10 +1555,15 @@ class GaitScrutinyReport:
             Plot data for the opposite leg, shifted so that the data starts at
             the start of stance. It is expected then that opposite_strike is
             provided for all sims added to the report.
+        do_plot_joint_torques : bool, optional (default: False)
+            Plot inverse dynamics joint torques; requires that a joint torque
+            table is passed in for all simulations.
         max_muscle_force : float, optional
             Set the ymax value for all muscle force plots to this value. This
             is to make it easier to make comparisons across muscles.
-        max_metabolic_power : float, optional
+        max_muscle_power : float, optional
+            Set the ymax value for all muscle work rate (power) to this value.
+        max_metabolic_rate : float, optional
             Set the ymax value for all muscle metabolic consumption rate to
             this value.
 
@@ -1568,11 +1574,14 @@ class GaitScrutinyReport:
         self._sims = list()
         self._comps = list()
         self._do_plot_opposite = do_plot_opposite
+        self._do_plot_joint_torques = do_plot_joint_torques
         self._max_muscle_force = max_muscle_force
-        self._max_metabolic_power = max_metabolic_power
+        self._max_muscle_power = max_muscle_power
+        self._max_metabolic_rate = max_metabolic_rate
 
     def add_simulation(self, name, sim, primary_leg, cycle_start, cycle_end,
-            primary_strike, opposite_strike, toeoff=None, description=None):
+            primary_strike, opposite_strike, toeoff=None, description=None,
+            joint_torques=None):
         """Add a simulation to the report. These are the simulations we want to
         compare to the 'control' simulations.
 
@@ -1599,6 +1608,9 @@ class GaitScrutinyReport:
         toeoff : float, optional
             Time at which the primary foot enters swing. If given, a vertical
             line is shown on plots to separate stance and swing.
+        joint_torques : tables.Table
+            Table containing inverse dynamics joint torques; used if
+            `do_plot_joint_torques` is True in the constructor.
 
         """
         simdict = dict()
@@ -1611,11 +1623,12 @@ class GaitScrutinyReport:
         simdict['opposite_strike'] = opposite_strike
         simdict['toeoff'] = toeoff
         simdict['description'] = description
+        simdict['joint_torques'] = joint_torques
         self._sims.append(simdict)
 
     def add_comparison_simulation(self, name, sim, primary_leg, cycle_start,
             cycle_end, primary_strike, opposite_strike, toeoff=None,
-            description=None):
+            description=None, joint_torques=None):
         """Add a simulation to the report. These are 'control' simulations to
         which you want to compare another simulation.
 
@@ -1643,6 +1656,9 @@ class GaitScrutinyReport:
             Time at which the primary foot exits stance and enters swing. If
             given, a vertical line is shown on plots to separate stance and
             swing.
+        joint_torques : tables.Table
+            Table containing inverse dynamics joint torques; used if
+            `do_plot_joint_torques` is True in the constructor.
 
         """
         simdict = dict()
@@ -1655,6 +1671,7 @@ class GaitScrutinyReport:
         simdict['opposite_strike'] = opposite_strike
         simdict['toeoff'] = toeoff
         simdict['description'] = description
+        simdict['joint_torques'] = joint_torques
         self._comps.append(simdict)
 
     def generate(self, fname):
@@ -1707,7 +1724,10 @@ class GaitScrutinyReport:
     
             def plot_a_series(series, label, **kwargs):
     
-                thetable = getattr(series['sim'], table)
+                if table == 'joint_torques':
+                    thetable = series['joint_torques']
+                else:
+                    thetable = getattr(series['sim'], table)
     
                 mult = -1.0 if negate else None
     
@@ -1789,6 +1809,26 @@ class GaitScrutinyReport:
         pl.xlabel('percent gait cycle')
     
         pp.savefig(fkin)
+
+        # Joint torques!
+        # --------------
+        if self._do_plot_joint_torques:
+            print 'Processing joint torques.'
+            fjt = pl.figure(figsize=(6, 12))
+            pl.suptitle('JOINT TORQUES', weight='bold')
+    
+            def plot_jt(index, name, **kwargs):
+                plot_coordinate((3, 1), (index, 0), 'joint_torques',
+                        '%s_!' % name, 'N-m', **kwargs)
+    
+            plot_jt(0, 'hip_flexion', title='hip', label='flexion torque')
+            plot_jt(1, 'knee_angle', negate=True, label='flexion torque',
+                    title='knee')
+            plot_jt(2, 'ankle_angle', negate=True,
+                    label='plantarflexion torque', title='ankle')
+            pl.xlabel('percent gait cycle')
+    
+            pp.savefig(fjt)
     
         # Muscles!
         # ========
@@ -1937,12 +1977,14 @@ class GaitScrutinyReport:
                 'remaining hip muscles']
         msets = [mset1, mset2, mset3]
 
+        # Activations.
         for i in range(3):
             create_plate('activations (%s)' % msubnames[i],
                     'states', 'activation (-)', '%s_!_activation',
                     (4, 4), msets[i],
                     yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
 
+        # Forces.
         for i in range(3):
             if self._max_muscle_force: ylims = (0, self._max_muscle_force)
             else: ylims = None
@@ -1950,10 +1992,19 @@ class GaitScrutinyReport:
                     'Actuation_force', 'force (N)', '%s_!', (4, 4), msets[i],
                     ylims=ylims)
 
+        # Power.
+        for i in range(3):
+            if self._max_muscle_power: ylims = (0, self._max_muscle_power)
+            else: ylims = None
+            create_plate('work rate / power (%s)' % msubnames[i],
+                    'Actuation_power', 'work rate (W)', '%s_!', (4, 4),
+                    msets[i], ylims=ylims)
+
+        # Metabolics.
         try:
             for i in range(3):
-                if self._max_metabolic_power:
-                    ylims = (0, self._max_metabolic_power)
+                if self._max_metabolic_rate:
+                    ylims = (0, self._max_metabolic_rate)
                 else: ylims = None
                 create_plate('metabolics (%s)' % msubnames[i],
                         'ProbeReporter_probes',

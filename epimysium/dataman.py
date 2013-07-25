@@ -88,6 +88,95 @@ def _splitall(path):
             allparts.insert(0, parts[1])
     return allparts
 
+def cmc_input_files(cmc_setup_fpath):
+    """Given a CMC setup file, returns all necessary input files. Assumes only
+    one force_set_files.
+
+    Parameters
+    ----------
+    cmc_setup_fpath : str
+        Path to a CMC setup file.
+
+    Returns
+    -------
+    input_fpaths : dict of str's
+        The keys are:
+        - model
+        - tasks
+        - actuators
+        - controlconstraints
+        - desired_kinematics
+        - external_loads
+        - force_plates
+        - extload_kinematics
+
+    """
+
+
+def copy_cmc_inputs(cmc_setup_file, destination, replace=None):
+    """Given a CMC setup file, copies all files necessary to run CMC over to
+    `destination`. All files necessary to run CMC are stored in the same
+    directory. The CMC setup file and the external loads files are edited so
+    that they refer to the correct copied files.
+
+    TODO allow placing files in another location; but then update the path in
+    the file so that it's relative to the file.
+
+    Parameters
+    ----------
+    cmc_setup_fpath : str
+        Path to a CMC setup file.
+    destination : str
+        Directory in which to place the setup files.
+    replace : dict
+        In case the paths in the files may be invalid, replace parts of the
+        paths with the strings given in this dict. Keys are strings to look
+        for, values are what to replace the key with.
+
+    """
+    fname = cmc_setup_fpath
+
+    setup = etree.parse(fname)
+
+    old = dict()
+
+    def valid_path(file_containing_path, xml, tag):
+
+        path = xml.findall('.//%s' % tag)[0].text
+
+        if os.path.exists(path): return path
+
+        if replace:
+            for key, val in replace.items():
+                path = path.replace(key, val)
+
+        if os.path.exists(path): return path
+
+        path = os.path.relpath(path, file_containing_path)
+
+        print path
+
+        return path
+
+    # Settings / parameters.
+    old['model'] = valid_path(fname, setup, 'model_file')
+    old['tasks'] = valid_path(fname, setup, 'task_set_file')
+    old['actuators'] = valid_path(fname, setup, 'force_set_files')
+    old['controlconstraints'] = valid_path(fname, setup, 'constraints_file')
+
+    # Data.
+    old['desired_kinematics'] = valid_path(fname, setup,
+            'desired_kinematics_file')
+
+    old['external_loads'] = valid_path(fname, setup, 'external_loads_file')
+
+    # Try to open the external loads file.
+    extloads = etree.parse(old['external_loads'])
+    old['force_plates'] = valid_path(old['external_loads'], extloads,
+            'datafile')
+    old['extload_kinematics'] = valid_path(old['external_loads'],
+            extloads, 'external_loads_model_kinematics_file')
+
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         title=''):
