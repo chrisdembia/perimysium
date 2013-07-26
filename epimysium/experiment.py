@@ -117,10 +117,11 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     readme.close()
 
     if run_command:
-        curdir = os.path.abspath(os.curdir())
+        curdir = os.path.abspath(os.curdir)
         os.chdir(destination)
         try:
-            os.system('%s -S %s' % (run_command, exp_cmc_setup_fpath))
+            os.system('%s -S %s' % (run_command, 
+                os.path.basename(cmc_input['setup'])))
         except:
             os.chdir(curdir)
             raise
