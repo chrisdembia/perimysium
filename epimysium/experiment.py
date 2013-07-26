@@ -4,6 +4,7 @@ To be used in Jython.
 
 """
 import datetime
+# TODO import difflib
 import filecmp
 import os
 import xml.etree.ElementTree as etree
@@ -51,6 +52,13 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     else:
         os.makedirs(destination)
 
+    # Write a README file.
+    # --------------------
+    readme = open(os.path.join(destination, 'README.txt'), 'a')
+    readme.writelines("OpenSim CMC experiment '%s': %s\n" % (name, description))
+    readme.writelines("These files were generated on/at %s." %
+            datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'))
+
     # Copy over all setup files to destination.
     # -----------------------------------------
     # The user can modify these.  This way, we are not giving the user an
@@ -80,24 +88,32 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     # -------------------------------------------------------------------------
     # Necessarily need a setup file, and an external_loads file.
     if minimal:
+        readme.write("\n\nThe files that have changed:\n")
         setup = etree.parse(cmc_input['setup'])
         tags = {'model': 'model_file', 'tasks': 'task_set_file', 'actuators':
                 'force_set_files', 'control_constraints': 'constraints_file'}
-    
+
         for key in ['model', 'control_constraints', 'tasks', 'actuators']:
-            if (cmc_input[key] != None and
-                    filecmp.cmp(orig_fpaths[key], cmc_input[key])):
-                os.remove(cmc_input[key])
-                setup.findall('.//%s' % tags[key])[0].text = \
-                        os.path.relpath(orig_fpaths[key], destination)
+            if cmc_input[key] != None:
+                if filecmp.cmp(orig_fpaths[key], cmc_input[key]):
+                    # File unchanged.
+                    os.remove(cmc_input[key])
+                    setup.findall('.//%s' % tags[key])[0].text = \
+                            os.path.relpath(orig_fpaths[key], destination)
+                else:
+                    readme.write("%s --> %s\n" % (orig_fpaths[key],
+                        cmc_input[key]))
+                    # Put diff in the README.
+                    # TODO
+                    #readme.writelines(difflib.context_diff(
+                    #    open(orig_fpaths[key]).readlines(),
+                    #    open(cmc_input[key]).readlines(),
+                    #    fromfile=orig_fpaths[key],
+                    #    tofile=cmc_input[key]))
+                    #readme.write('\n')
         setup.write(exp_fpaths['setup'])
 
-    # Write a README file.
-    # --------------------
-    readme = open(os.path.join(destination, 'README.txt'), 'a')
-    readme.writelines("OpenSim CMC experiment '%s': %s.\n" % (name, description))
-    readme.writelines("These files were generated on/at %s." %
-            datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'))
+    readme.write('\n')
     readme.close()
 
     if run_command:
