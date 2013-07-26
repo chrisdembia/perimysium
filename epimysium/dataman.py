@@ -313,6 +313,68 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     return old, new_fpaths
 
 
+def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True):
+    """Docks all simulations in the tree into the h5file at the desired
+    location. The directory structure used in the h5 file is the same that is
+    used for the simulation output. All leaves in the tree MUST be simulation
+    outputs (e.g. contain STO files).
+
+    Parameters
+    ----------
+    h5fname : str
+        Name of the pyTables/HDF5 file in which to dock the output.
+    study_root : str
+        Path to the directory tree containing simulation output to be docked.
+    h5_root : list of str's
+        The group in the pyTables/HDF5 file in which these simulations will be
+        docked.
+    verbose : bool, optional (default: True)
+        Prints a notice for every output loaded into the pyTables file.
+
+    """
+    # TODO overwrite : bool, optional (default : False)
+    # TODO     If a group already exists, delete it and rewrite it with the
+    # TODO     newly-found data.  Otherwise, the group is skipped.
+    # Open the pyTables file.
+    h5file = tables.openFile(h5fname, mode='a')
+
+    # Report the number of exceptions we get.
+    exception_count = 0
+
+    # Walk the entire directory structure.
+    for (path, dirs, files) in os.walk(study_root):
+
+        # Only want leaves: there are no more directories in the directory.
+        # This path also needs to have files to be considered.
+        # TODO an alternative check is os.path.split(path)[1] == 'output'
+        if len(dirs) == 0 and len(files) != 0:
+
+            if verbose:
+                print "Loading {0}.".format(path)
+
+            # Create a list describing the path, excluding 'output' at the end.
+            # Also make sure we do this for a path that's relative to the study
+            # root.
+            path_parts = _splitall(os.path.relpath(os.path.split(path)[0],
+                study_root))
+
+            # Prepend the user's desired root for this study in the h5 file.
+            group_path = h5_root + path_parts
+
+            # Dock this specific simulation output.
+            try:
+                this_table = dock_output_in_pytable(h5file, path,
+                        group_path)
+            except Exception as e:
+                print "Exception at path {0}: {1}".format(path, e.message)
+                exception_count += 1
+
+    print "Number of exceptions: %i" % exception_count
+
+    # Close the pyTables file.
+    h5file.close()
+
+
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         title=''):
     """Docks an OpenSim output, via a table for each STO file, in a pyTable

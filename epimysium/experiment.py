@@ -58,6 +58,7 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     readme.writelines("OpenSim CMC experiment '%s': %s\n" % (name, description))
     readme.writelines("These files were generated on/at %s." %
             datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'))
+    readme.writelines("This simulation is based on %s." % cmc_setup_fpath)
 
     # Copy over all setup files to destination.
     # -----------------------------------------
