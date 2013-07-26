@@ -95,7 +95,8 @@ def cmc_input_fpaths():
     """
     pass
 
-def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
+def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
+        do_not_copy=None, **kwargs):
     """Given a CMC setup file, copies all files necessary to run CMC over to
     `destination`. All files necessary to run CMC are stored in the same
     directory. The CMC setup file and the external loads files are edited so
@@ -116,6 +117,13 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
         In case the paths in the files may be invalid, replace parts of the
         paths with the strings given in this dict. Keys are strings to look
         for, values are what to replace the key with.
+    do_not_copy : list of str's, optional
+        Names of keys ('model', 'tasks', etc.; see the remaining parameters)
+        for which files should not be copied over. The corresponding tags in
+        the files will be updated so they refer to these original files, even
+        if the setup files have moved. This takes precedence over the
+        specification of new filenames for the remaining optional arguments.
+        'setup' and 'external_loads' are necessarily copied over.
     setup : str, optional
         A new filename for the cmc setup file (the first argument to this
         method).
@@ -138,9 +146,9 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
 
     Returns
     -------
-    new_fpaths : dict
-        A valid filepath to the all the new files that were just copied over.
-        The keys are as follows:
+    old_fpaths : dict
+        A valid filepath to all the original CMC input files related to the
+        provided CMC setup file.
         - setup
         - model
         - tasks
@@ -150,8 +158,15 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
         - external_loads
         - force_plates
         - extload_kinematics
+    new_fpaths : dict
+        A valid filepath to the all the new files that were just copied over.
+        The keys are as above for `old_fpaths`.
 
     """
+    if do_not_copy != None:
+        if 'setup' in do_not_copy or 'external_loads' in do_not_copy:
+            raise Exception('`do_not_copy` cannot contain `setup` or '
+                    '`external_loads`.')
     fname = cmc_setup_fpath
 
     setup = etree.parse(fname)
@@ -184,7 +199,7 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
                 os.path.join(os.path.split(file_containing_path)[0], path.rstrip()))
         if os.path.exists(path2): return path2
 
-        raise Exception('Path %s does not exist.' % path)
+        raise Exception('Paths %s and %s do not exist.' % (path, path2))
 
     # Get file names.
     # ---------------
@@ -222,24 +237,29 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
 
     if not os.path.exists(destination): os.makedirs(destination)
     for key, val in old.items():
-        if val and key != 'external_loads':
+        if val and key != 'external_loads' and (do_not_copy == None or key not
+                in do_not_copy):
             if key in kwargs:
                 new_fpath = os.path.join(destination, kwargs[key])
                 shutil.copy(val, new_fpath)
                 new_fpaths[key] = new_fpath
             else:
                 shutil.copy(val, destination)
-                new_fpaths[key] = os.path.join(destination, os.path.basename(val))
+                new_fpaths[key] = os.path.join(destination,
+                        os.path.basename(val))
 
     # Edit the names of the files in the setup files.
     # -----------------------------------------------
     def edit_field(xml, tag, key):
         if old[key]:
-            if key in kwargs:
-                newvalue = kwargs[key]
+            if do_not_copy != None and key in do_not_copy:
+                xml.findall('.//%s' % tag)[0].text = os.path.relpath(old[key], destination)
             else:
-                newvalue = os.path.basename(old[key])
-            xml.findall('.//%s' % tag)[0].text = newvalue
+                if key in kwargs:
+                    newvalue = kwargs[key]
+                else:
+                    newvalue = os.path.basename(old[key])
+                xml.findall('.//%s' % tag)[0].text = newvalue
 
     setup.findall('.//results_directory')[0].text = 'results'
     edit_field(setup, 'model_file', 'model')
@@ -256,18 +276,20 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
     if 'setup' in kwargs:
         setup_new_fpath = os.path.join(destination, kwargs['setup'])
     else:
-        setup_new_fpath = os.path.basename(cmc_setup_fpath)
+        setup_new_fpath = os.path.join(destination,
+                os.path.basename(cmc_setup_fpath))
     setup.write(setup_new_fpath)
     new_fpaths['setup'] = setup_new_fpath
 
     if 'external_loads' in kwargs:
         extloads_new_fpath = os.path.join(destination, kwargs['external_loads'])
     else:
-        extloads_new_fpath = os.path.basename(cmc_setup_fpath)
+        extloads_new_fpath = os.path.join(destination,
+                os.path.basename(old['external_loads']))
     extloads.write(extloads_new_fpath)
     new_fpaths['external_loads'] = extloads_new_fpath
 
-    return new_fpaths
+    return old, new_fpaths
 
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
