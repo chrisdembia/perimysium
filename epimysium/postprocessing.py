@@ -2011,7 +2011,7 @@ class GaitScrutinyReport:
                         'metabolic consumption rate (W)',
                         'metabolic_power_%s_!', (4, 4), msets[i],
                         ylims=ylims)
-        except Exception as e:
+        except Exception, e:
             print e.message
     
         # That's all, folks.
