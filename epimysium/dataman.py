@@ -89,14 +89,16 @@ def _splitall(path):
     return allparts
 
 
-def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None):
+def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
     """Given a CMC setup file, copies all files necessary to run CMC over to
     `destination`. All files necessary to run CMC are stored in the same
     directory. The CMC setup file and the external loads files are edited so
     that they refer to the correct copied files.
 
-    TODO allow placing files in another location; but then update the path in
-    the file so that it's relative to the file.
+    Also sets the results_directory to be 'results'.
+
+    TODO allow placing files in another location (not a flat structure); but
+    then update the path in the file so that it's relative to the file.
 
     Parameters
     ----------
@@ -104,10 +106,29 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None):
         Path to a CMC setup file.
     destination : str
         Directory in which to place the setup files.
-    replace : dict
+    replace : dict, optional
         In case the paths in the files may be invalid, replace parts of the
         paths with the strings given in this dict. Keys are strings to look
         for, values are what to replace the key with.
+    setup : str, optional
+        A new filename for the cmc setup file (the first argument to this
+        method).
+    model : str, optional
+        A new filename for this file.
+    tasks : str, optional
+        A new filename for this file.
+    actuators : str, optional
+        A new filename for this file.
+    control_constraints : str, optional
+        A new filename for this file.
+    desired_kinematics : str, optional
+        A new filename for this file.
+    external_loads : str, optional
+        A new filename for this file.
+    force_plates : str, optional
+        A new filename for this file.
+    extload_kinematics : str, optional
+        A new filename for this file.
 
     """
     fname = cmc_setup_fpath
@@ -119,31 +140,42 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None):
     def valid_path(file_containing_path, xml, tag):
 
         path = xml.findall('.//%s' % tag)[0].text
-
+        if path == None or path.lstrip() == '': return None
         if os.path.exists(path): return path
 
         if replace:
             for key, val in replace.items():
                 path = path.replace(key, val)
-
         if os.path.exists(path): return path
 
-        path = os.path.relpath(path, file_containing_path)
+        path = path.replace('\\', '/')
+        if os.path.exists(path): return path
 
-        print path
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0], path))
+        if os.path.exists(path2): return path2
 
-        return path
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0], path.lstrip()))
+        if os.path.exists(path2): return path2
 
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0], path.rstrip()))
+        if os.path.exists(path2): return path2
+
+        raise Exception('Path %s does not exist.' % path)
+
+    # Get file names.
+    # ---------------
     # Settings / parameters.
     old['model'] = valid_path(fname, setup, 'model_file')
     old['tasks'] = valid_path(fname, setup, 'task_set_file')
     old['actuators'] = valid_path(fname, setup, 'force_set_files')
-    old['controlconstraints'] = valid_path(fname, setup, 'constraints_file')
+    old['control_constraints'] = valid_path(fname, setup, 'constraints_file')
 
     # Data.
     old['desired_kinematics'] = valid_path(fname, setup,
             'desired_kinematics_file')
-
     old['external_loads'] = valid_path(fname, setup, 'external_loads_file')
 
     # Try to open the external loads file.
@@ -152,6 +184,48 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None):
             'datafile')
     old['extload_kinematics'] = valid_path(old['external_loads'],
             extloads, 'external_loads_model_kinematics_file')
+
+    # Copy files over.
+    # ----------------
+    if not os.path.exists(destination): os.makedirs(destination)
+    for key, val in old.items():
+        if val and val != 'external_loads':
+            if key in kwargs:
+                shutil.copy(val, os.path.join(destination, kwargs[key]))
+            else:
+                shutil.copy(val, destination)
+
+    # Edit the names of the files in the setup files.
+    # -----------------------------------------------
+    def edit_field(xml, tag, key):
+        if old[key]:
+            if key in kwargs:
+                newvalue = kwargs[key]
+            else:
+                newvalue = os.path.basename(old[key])
+            xml.findall('.//%s' % tag)[0].text = newvalue
+
+    setup.findall('.//results_directory')[0].text = 'results'
+    edit_field(setup, 'model_file', 'model')
+    edit_field(setup, 'task_set_file', 'tasks')
+    edit_field(setup, 'force_set_files', 'actuators')
+    edit_field(setup, 'constraints_file', 'control_constraints')
+    edit_field(setup, 'desired_kinematics_file', 'desired_kinematics')
+    edit_field(setup, 'external_loads_file', 'external_loads')
+
+    edit_field(extloads, 'datafile', 'force_plates')
+    edit_field(extloads, 'external_loads_model_kinematics_file',
+            'extload_kinematics')
+
+    if 'setup' in kwargs:
+        setup.write(os.path.join(destination, kwargs['setup']))
+    else:
+        setup.write(os.path.basename(cmc_setup_fpath))
+
+    if 'external_loads' in kwargs:
+        extloads.write(os.path.join(destination, kwargs['external_loads']))
+    else:
+        extloads.write(os.path.basename(cmc_setup_fpath))
 
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
