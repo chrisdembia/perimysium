@@ -88,6 +88,12 @@ def _splitall(path):
             allparts.insert(0, parts[1])
     return allparts
 
+def cmc_input_fpaths():
+    """Assumes the input files refer to valid file paths (which copy_cmc_inputs
+    does not assume).
+
+    """
+    pass
 
 def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
     """Given a CMC setup file, copies all files necessary to run CMC over to
@@ -129,6 +135,21 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
         A new filename for this file.
     extload_kinematics : str, optional
         A new filename for this file.
+
+    Returns
+    -------
+    new_fpaths : dict
+        A valid filepath to the all the new files that were just copied over.
+        The keys are as follows:
+        - setup
+        - model
+        - tasks
+        - actuators
+        - control_constraints
+        - desired_kinematics
+        - external_loads
+        - force_plates
+        - extload_kinematics
 
     """
     fname = cmc_setup_fpath
@@ -187,13 +208,28 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
 
     # Copy files over.
     # ----------------
+    # We'll store the location of the copies.
+    new_fpaths = dict()
+    new_fpaths['setup'] = None
+    new_fpaths['model'] = None
+    new_fpaths['tasks'] = None
+    new_fpaths['actuators'] = None
+    new_fpaths['control_constraints'] = None
+    new_fpaths['desired_kinematics'] = None
+    new_fpaths['external_loads'] = None
+    new_fpaths['force_plates'] = None
+    new_fpaths['extload_kinematics'] = None
+
     if not os.path.exists(destination): os.makedirs(destination)
     for key, val in old.items():
-        if val and val != 'external_loads':
+        if val and key != 'external_loads':
             if key in kwargs:
-                shutil.copy(val, os.path.join(destination, kwargs[key]))
+                new_fpath = os.path.join(destination, kwargs[key])
+                shutil.copy(val, new_fpath)
+                new_fpaths[key] = new_fpath
             else:
                 shutil.copy(val, destination)
+                new_fpaths[key] = os.path.join(destination, os.path.basename(val))
 
     # Edit the names of the files in the setup files.
     # -----------------------------------------------
@@ -218,14 +254,20 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None, **kwargs):
             'extload_kinematics')
 
     if 'setup' in kwargs:
-        setup.write(os.path.join(destination, kwargs['setup']))
+        setup_new_fpath = os.path.join(destination, kwargs['setup'])
     else:
-        setup.write(os.path.basename(cmc_setup_fpath))
+        setup_new_fpath = os.path.basename(cmc_setup_fpath)
+    setup.write(setup_new_fpath)
+    new_fpaths['setup'] = setup_new_fpath
 
     if 'external_loads' in kwargs:
-        extloads.write(os.path.join(destination, kwargs['external_loads']))
+        extloads_new_fpath = os.path.join(destination, kwargs['external_loads'])
     else:
-        extloads.write(os.path.basename(cmc_setup_fpath))
+        extloads_new_fpath = os.path.basename(cmc_setup_fpath)
+    extloads.write(extloads_new_fpath)
+    new_fpaths['external_loads'] = extloads_new_fpath
+
+    return new_fpaths
 
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
