@@ -7,9 +7,6 @@
 # changes that need to be made to the model file.
 # TODO allow specifying which cycles to manage.
 
-try: import abc
-except ImportError, e: print e.message
-
 import csv
 import difflib
 import filecmp
@@ -24,10 +21,27 @@ except ImportError, e: print e.message
 try: import numpy as np
 except ImportError, e: print e.message
 
-try: from cherithon import log
-except ImportError, e: print e.message
-try: import swirl
-except ImportError, e: print e.message
+if sys.version_info[0] == 2 and sys.version_info[1] < 6:
+    # Taken from /usr/lib/python2.7/posixpath.py
+    # This method does not exist prior to python2.6.
+    def relpath(path, start=os.path.curdir):
+        """Return a relative version of a path"""
+    
+        if not path:
+            raise ValueError("no path specified")
+    
+        start_list = [x for x in os.path.abspath(start).split(os.path.sep) if x]
+        path_list = [x for x in os.path.abspath(path).split(os.path.sep) if x]
+    
+        # Work out how much of the filepath is shared by start and path.
+        i = len(os.path.commonprefix([start_list, path_list]))
+    
+        rel_list = [os.path.pardir] * (len(start_list)-i) + path_list[i:]
+        if not rel_list:
+            return curdir
+        return os.path.join(*rel_list)
+    os.path.relpath = relpath
+
 
 def storage2numpy(storage_file):
     """Returns the data from a storage file in a numpy format. Skips all lines
