@@ -4,6 +4,7 @@ To be used in Jython.
 
 """
 import datetime
+import filecmp
 import os
 import xml.etree.ElementTree as etree
 
@@ -34,6 +35,7 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     # to the setup file (force set files).
     # TODO make it easy for the user to place additiona files in this
     # directory.
+    # TODO clean up 
 
     # If the file is changed, save the new version of it in the experiment
     # directory. Otherwise, depend on files in the cmc_input directory.
@@ -70,11 +72,6 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
             'tasks': exp_fpaths['tasks'],
             'actuators': exp_fpaths['actuators']
             }
-    # Get last-time-modified time stamps.
-    mtimes = dict()
-    for key, val in cmc_input.items():
-        if val != None:
-            mtimes[key] = os.path.getmtime(val)
 
     # Give the user a chance to edit these files.
     fcn(cmc_input)
@@ -88,8 +85,8 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
                 'force_set_files', 'control_constraints': 'constraints_file'}
     
         for key in ['model', 'control_constraints', 'tasks', 'actuators']:
-            if (cmc_input[key] != None and os.path.getmtime(cmc_input[key]) <=
-                    mtimes[key]):
+            if (cmc_input[key] != None and
+                    filecmp.cmp(orig_fpaths[key], cmc_input[key])):
                 os.remove(cmc_input[key])
                 setup.findall('.//%s' % tags[key])[0].text = \
                         os.path.relpath(orig_fpaths[key], destination)
