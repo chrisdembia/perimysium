@@ -284,19 +284,26 @@ def plot_simulation_verification(sim_group, **kwargs):
     show_legend : bool, optional
         Show a legend for all columns plotted. By default, False.
 
+    Returns
+    -------
+    fig : pl.figure
+        Figure handle, or list of handles.
+
     """
     if 'show_legend' in kwargs and kwargs['show_legend']:
-        plot_kinematics_verification(sim_group.pErr, **kwargs)
-        plot_residuals_verification(sim_group.Actuation_force, **kwargs)
-        plot_reserves_verification(sim_group.Actuation_force, **kwargs)
+        figk = plot_kinematics_verification(sim_group.pErr, **kwargs)
+        figrd = plot_residuals_verification(sim_group.Actuation_force, **kwargs)
+        figrv = plot_reserves_verification(sim_group.Actuation_force, **kwargs)
+        return [figk, figrd, figrv]
     else:
-        pl.figure(figsize=(15, 8))
+        fig = pl.figure(figsize=(15, 8))
         plot_kinematics_verification(sim_group.pErr, big_picture=(3, 0),
                 **kwargs)
         plot_residuals_verification(sim_group.Actuation_force,
                 big_picture=(3, 1), **kwargs)
         plot_reserves_verification(sim_group.Actuation_force,
                 big_picture=(3, 2), **kwargs)
+        return fig
 
 
 def rms(array):
@@ -349,6 +356,11 @@ def plot_kinematics_verification(pErr_table,
         second element as the column index (index starts at 0) for these plots.
         Example is: (3, 0).
 
+    Returns
+    -------
+    fig : pl.figure
+        Figure handle if this method creates a new figure.
+
     """
     legend_kwargs = {'loc': 'upper left', 'bbox_to_anchor': (1, 1)}
     MtoCM = 100.0
@@ -369,13 +381,14 @@ def plot_kinematics_verification(pErr_table,
             max_trans = max(max_trans, sorted_pErr[i] * MtoCM)
     ylim_trans = max(trans_okay_thresh, 1.1 * max_trans)
 
+    fig = None
     if big_picture != None:
         n_col = big_picture[0]
         this_col = big_picture[1]
     else:
         n_col = 1
         this_col = 0
-        pl.figure(figsize=(5, 8))
+        fig = pl.figure(figsize=(5, 8))
 
     # Translation
     # -----------
@@ -416,7 +429,6 @@ def plot_kinematics_verification(pErr_table,
     pl.xlim(time[0], time[-1])
     pl.ylim((-ylim_trans, ylim_trans))
 
-    pl.xlabel('time (s)')
     pl.ylabel('error (cm)')
     pl.title('Translation error')
 
@@ -474,6 +486,8 @@ def plot_kinematics_verification(pErr_table,
 
     if show_legend: pl.legend(**legend_kwargs)
 
+    if fig: return fig
+
 
 def plot_residuals_verification(actforce_table, n_max=None,
         violators_only=False, show_legend=False, big_picture=None):
@@ -509,6 +523,11 @@ def plot_residuals_verification(actforce_table, n_max=None,
         second element as the column index (index starts at 0) for these plots.
         Example is: (3, 0).
 
+    Returns
+    -------
+    fig : pl.figure
+        Figure handle if this method creates a new figure.
+
     """
     legend_kwargs = {'loc': 'upper left', 'bbox_to_anchor': (1, 1)}
 
@@ -528,13 +547,14 @@ def plot_residuals_verification(actforce_table, n_max=None,
             max_force = max(max_force, sorted_actf[i])
     ylim_force = max(force_okay_thresh, 1.1 * max_force)
 
+    fig = None
     if big_picture != None:
         n_col = big_picture[0]
         this_col = big_picture[1]
     else:
         n_col = 1
         this_col = 0
-        pl.figure(figsize=(5, 8))
+        fig = pl.figure(figsize=(5, 8))
 
     # --- Translation.
     pl.subplot2grid((2, n_col), (0, this_col))
@@ -573,7 +593,6 @@ def plot_residuals_verification(actforce_table, n_max=None,
     pl.xlim(time[0], time[-1])
     pl.ylim((-ylim_force, ylim_force))
 
-    pl.xlabel('time (s)')
     pl.ylabel('residual force (N)')
     pl.title('Residual forces')
 
@@ -627,12 +646,14 @@ def plot_residuals_verification(actforce_table, n_max=None,
 
     if show_legend: pl.legend(**legend_kwargs)
 
+    if fig: return figs
+
 
 def plot_reserves_verification(actforce_table, n_max=None,
         violators_only=False, show_legend=False, big_picture=None):
     """Plots reserves verification information, with comparisons to "good"
     and "okay", and "bad" thresholds, using matplotlib. Assumes all reserves
-    are torque actuators, and their names end with 'reserve'.
+    are torque actuators, and their names contain 'reserve'.
 
     Regions on the plot are colored as follows:
     green: good
@@ -661,6 +682,11 @@ def plot_reserves_verification(actforce_table, n_max=None,
         second element as the column index (index starts at 0) for these plots.
         Example is: (3, 0).
 
+    Returns
+    -------
+    fig : pl.figure
+        If we created a new figure, this is that figure's handle.
+
     """
     legend_kwargs = {'loc': 'upper left', 'bbox_to_anchor': (1, 1)}
 
@@ -672,12 +698,13 @@ def plot_reserves_verification(actforce_table, n_max=None,
 
     sorted_actf, sorted_colns = sorted_maxabs(actforce_table)
 
+    fig = None
     if big_picture != None:
         n_col = big_picture[0]
         this_col = big_picture[1]
         pl.subplot2grid((2, n_col), (0, this_col))
     else:
-        pl.figure(figsize=(5, 4))
+        fig = pl.figure(figsize=(5, 4))
 
     max_torque = -np.inf
     for i, coln in enumerate(sorted_colns):
@@ -723,6 +750,8 @@ def plot_reserves_verification(actforce_table, n_max=None,
     pl.title('Reserve torques')
 
     if show_legend: pl.legend(**legend_kwargs)
+
+    if fig: return fig
 
 
 def verify_simulation(sim_group):
@@ -1229,6 +1258,51 @@ def gait_landmarks_from_grf(mot_file,
     return right_foot_strikes, left_foot_strikes, right_toe_offs, left_toe_offs
 
 
+def plot_force_plate_data(mot_file):
+    """Plots all force componenets, center of pressure components, and moment
+    components, for both legs.
+
+    Parameters
+    ----------
+    mot_file : str
+        Name of *.mot (OpenSim Storage) file containing force plate data.
+
+    """
+    data = dataman.storage2numpy(mot_file)
+    time = data['time']
+
+    pl.figure(figsize=(5 * 2, 4 * 3))
+
+    for i, prefix in enumerate([ '1_', '']):
+        pl.subplot2grid((3, 2), (0, i))
+        for comp in ['x', 'y', 'z']:
+            pl.plot(time, 1.0e-3 * data['%sground_force_v%s' % (prefix, comp)],
+                    label=comp)
+        if i == 0:
+            pl.title('left foot')
+            pl.ylabel('force components (kN)')
+        if i == 1:
+            pl.title('right foot')
+            pl.legend(loc='upper left', bbox_to_anchor=(1, 1))
+
+    for i, prefix in enumerate([ '1_', '']):
+        pl.subplot2grid((3, 2), (1, i))
+        for comp in ['x', 'y', 'z']:
+            pl.plot(time, data['%sground_force_p%s' % (prefix, comp)],
+                    label=comp)
+
+        if i == 0: pl.ylabel('center of pressure components (m)')
+
+    for i, prefix in enumerate([ '1_', '']):
+        pl.subplot2grid((3, 2), (2, i))
+        for comp in ['x', 'y', 'z']:
+            pl.plot(time, data['%sground_torque_%s' % (prefix, comp)],
+                    label=comp)
+
+        if i == 0: pl.ylabel('torque components (N-m)')
+        pl.xlabel('time (s)')
+
+
 def plot_joint_torque_contributions(muscle_contrib_table,
         total_joint_torque=None, muscles=None,
         plot_sum_of_selected_muscles=False,
@@ -1532,6 +1606,10 @@ class GaitScrutinyReport:
     - muscle activations
     - muscle forces
     - muscle metabolics
+    - verification
+        - kinematics errors
+        - residuals
+        - joint torque reserves
 
     Expects the gait2392 muscle set, and muscle names.
 
@@ -2013,6 +2091,15 @@ class GaitScrutinyReport:
                         ylims=ylims)
         except Exception, e:
             print e.message
+
+        # Verification.
+        # -------------
+        for all_series in [self._sims, self._comps]:
+            for a_sim in all_series:
+                fig = plot_simulation_verification(a_sim['sim'])
+                pl.suptitle('VERIFICATION OF %s' % (a_sim['name']),
+                        fontweight='bold')
+                pp.savefig(fig)
     
         # That's all, folks.
         # ------------------
