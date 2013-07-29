@@ -646,7 +646,7 @@ def plot_residuals_verification(actforce_table, n_max=None,
 
     if show_legend: pl.legend(**legend_kwargs)
 
-    if fig: return figs
+    if fig: return fig
 
 
 def plot_reserves_verification(actforce_table, n_max=None,
