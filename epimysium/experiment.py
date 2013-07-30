@@ -11,46 +11,6 @@ import xml.etree.ElementTree as etree
 
 import dataman
 
-def storage2piecewise_linear_function(sto, column_name, scale_factor=None):
-    """Returns a column from a storage file as an
-    org.opensim.modeling.PiecewiseLinearFunction. We advise that, once you get
-    the function, you name it.
-
-    Parameters
-    ----------
-    sto : org.opensim.modeling.Storage
-        An OpenSim Storage object.
-    column_name : str
-        Name of a column in `sto`.
-    scale_factor : float, optional
-        Scale the column data before placing it in the function.
-
-    Returns
-    -------
-    plf : org.opensim.modeling.PiecewiseLinearFunction
-        Just like you asked for.
-
-    """
-    import org.opensim.modeling as osm
-
-    time = osm.ArrayDouble()
-    sto.getTimeColumn(time)
-
-    state_index = storage.getStateIndex(column_name)
-
-    if type(scale_factor) == float:
-        sto.multiplyColumn(state_index, scale_factor)
-    elif scale_factor == None:
-        pass
-    else:
-        raise Exception('scale_factor, if specified, must be a float.')
-
-    ordinate = osm.ArrayDouble()
-    sto.getDataColumn(state_index, ordinate)
-
-    return osm.PiecewiseLinearFunction(time.getSize(), time.get(),
-            ordinate.get())
-
 
 def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
         minimal=True, run_command=False, overwrite=False):
