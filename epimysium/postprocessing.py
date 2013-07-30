@@ -2146,7 +2146,7 @@ def plot(column, *args, **kwargs):
     """Plots a column of a pyTables table, against time.
 
     """
-    pl.plot(column.table.cols.time, column, label=column.name, *args, **kwargs)
+    pl.plot(column.table.cols.time, column, *args, **kwargs)
     pl.xlabel('time (s)')
 
 
