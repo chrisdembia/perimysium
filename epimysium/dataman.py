@@ -313,7 +313,7 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     return old, new_fpaths
 
 
-def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True):
+def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, **kwargs):
     """Docks all simulations in the tree into the h5file at the desired
     location. The directory structure used in the h5 file is the same that is
     used for the simulation output. All leaves in the tree MUST be simulation
@@ -364,8 +364,8 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True):
             # Dock this specific simulation output.
             try:
                 this_table = dock_output_in_pytable(h5file, path,
-                        group_path)
-            except Exception as e:
+                        group_path, **kwargs)
+            except Exception, e:
                 print "Exception at path {0}: {1}".format(path, e.message)
                 exception_count += 1
 

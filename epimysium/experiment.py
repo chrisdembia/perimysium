@@ -11,11 +11,53 @@ import xml.etree.ElementTree as etree
 
 import dataman
 
+def storage2piecewise_linear_function(sto, column_name, scale_factor=None):
+    """Returns a column from a storage file as an
+    org.opensim.modeling.PiecewiseLinearFunction. We advise that, once you get
+    the function, you name it.
+
+    Parameters
+    ----------
+    sto : org.opensim.modeling.Storage
+        An OpenSim Storage object.
+    column_name : str
+        Name of a column in `sto`.
+    scale_factor : float, optional
+        Scale the column data before placing it in the function.
+
+    Returns
+    -------
+    plf : org.opensim.modeling.PiecewiseLinearFunction
+        Just like you asked for.
+
+    """
+    import org.opensim.modeling as osm
+
+    time = osm.ArrayDouble()
+    sto.getTimeColumn(time)
+
+    state_index = storage.getStateIndex(column_name)
+
+    if type(scale_factor) == float:
+        sto.multiplyColumn(state_index, scale_factor)
+    elif scale_factor == None:
+        pass
+    else:
+        raise Exception('scale_factor, if specified, must be a float.')
+
+    ordinate = osm.ArrayDouble()
+    sto.getDataColumn(state_index, ordinate)
+
+    return osm.PiecewiseLinearFunction(time.getSize(), time.get(),
+            ordinate.get())
+
+
 def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
         minimal=True, run_command=False, overwrite=False):
     """
 
     cmc_input is 'setup', 'model', 'control_constraints', 'tasks', 'actuators'
+    TODO if additional force set files are provided, update the correct field of cmc setup file; we'll take care of making sure the original actuators.xml is placed back in the field.
 
     Parameters
     ----------
@@ -55,10 +97,10 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     # Write a README file.
     # --------------------
     readme = open(os.path.join(destination, 'README.txt'), 'a')
-    readme.writelines("OpenSim CMC experiment '%s': %s\n" % (name, description))
-    readme.writelines("These files were generated on/at %s." %
+    readme.write("OpenSim CMC experiment '%s': %s\n" % (name, description))
+    readme.write("These files were generated on/at %s.\n" %
             datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'))
-    readme.writelines("This simulation is based on %s." % cmc_setup_fpath)
+    readme.write("This simulation is based on %s.\n" % cmc_setup_fpath)
 
     # Copy over all setup files to destination.
     # -----------------------------------------
@@ -74,6 +116,8 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
 
     # Let the user change the files.
     # ------------------------------
+    setup_fsf = etree.parse(exp_fpaths['setup']).findall(
+            './/force_set_files')[0].text.strip()
     cmc_input = {
             'setup': exp_fpaths['setup'],
             'model': exp_fpaths['model'],
@@ -99,8 +143,12 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
                 if filecmp.cmp(orig_fpaths[key], cmc_input[key]):
                     # File unchanged.
                     os.remove(cmc_input[key])
-                    setup.findall('.//%s' % tags[key])[0].text = \
-                            os.path.relpath(orig_fpaths[key], destination)
+                    newval = os.path.relpath(orig_fpaths[key], destination)
+                    if key == 'actuators':
+                        if setup.findall('.//force_set_files')[0].text.strip() != setup_fsf:
+                            # In case other files are already specified.
+                            newval += setup.findall('.//%s' % tags[key])[0].text
+                    setup.findall('.//%s' % tags[key])[0].text = newval
                 else:
                     readme.write("%s --> %s\n" % (orig_fpaths[key],
                         cmc_input[key]))

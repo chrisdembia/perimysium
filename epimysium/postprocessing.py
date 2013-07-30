@@ -96,8 +96,9 @@ def avg(time, value, init_time=None, final_time=None, interval=None):
     else:
         final_idx = np.abs(time - final_time).argmin()
 
+    duration = time[final_idx-1] - time[init_idx]
     return np.trapz(value[init_idx:final_idx:interval],
-            x=time[init_idx:final_idx:interval])
+            x=time[init_idx:final_idx:interval]) / duration
 
 def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
     """Returns sort and argsort for all columns given. The quantity
