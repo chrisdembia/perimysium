@@ -168,3 +168,20 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         wholeBodyProbe.addMuscle(thisMuscle.getName(),
                                  slowTwitchRatio,
                                  -1)
+
+def enable_probes(model_fpath):
+    """Ensures that all probes are enabled (isDisabled is false). Writes over
+    the given model file.
+
+    Parameters
+    ----------
+    model_fpath : str
+        Path to a model (.OSIM) file.
+
+    """
+    model = osm.Model(model_fpath)
+    n_probes = model.getProbeSet().getSize()
+    for i_probe in range(n_probes):
+        model.updProbeSet().get(i_probe).setDisabled(False)
+    model.print(model_fpath)
+
