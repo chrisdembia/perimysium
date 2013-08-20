@@ -1228,7 +1228,7 @@ def gait_landmarks_from_grf(mot_file,
 
     if do_plot:
 
-        #pl.figure(figsize=(4, 8))
+        pl.figure(figsize=(6, 6))
         ones = np.array([1, 1])
 
         def myplot(index, label, ordinate, foot_strikes, toe_offs):
@@ -1242,11 +1242,13 @@ def gait_landmarks_from_grf(mot_file,
                 if i == 0: kwargs = {'label': 'foot strikes'}
                 else: kwargs = dict()
                 pl.plot(strike * ones, ax.get_ylim(), 'r', **kwargs)
+                pl.text(strike, .03 * ax.get_ylim()[1], ' %.3f' % strike)
 
             for i, off in enumerate(toe_offs):
                 if i == 0: kwargs = {'label': 'toe-offs'}
                 else: kwargs = dict()
                 pl.plot(off * ones, ax.get_ylim(), 'b', **kwargs)
+                pl.text(off, .03 * ax.get_ylim()[1], ' %.3f' % off)
 
 
         myplot(1, 'left foot', left_grfy, left_foot_strikes, left_toe_offs)
