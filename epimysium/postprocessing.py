@@ -1980,7 +1980,10 @@ class GaitScrutinyReport:
                     pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
                             c=(0.8, 0.8, 0.8), zorder=0, lw=1.5, **kwargs)
     
-            ax = pl.subplot2grid(grid, loc)
+            if type(grid) == tuple:        
+                ax = pl.subplot2grid(grid, loc)
+            else:
+                ax = pl.subplot(grid[loc[0], loc[1])
     
             # Add a curve to this plot for each sim and each comp.
             for comp in self._comps:
