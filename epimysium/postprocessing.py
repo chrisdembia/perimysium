@@ -1759,7 +1759,7 @@ class GaitScrutinyReport:
     def __init__(self, title='OpenSim gait2392 simulation comparison',
             sim_name=None, comp_name=None, do_plot_opposite=True,
             do_plot_joint_torques=False, max_muscle_force=None,
-            max_muscle_power=None, max_metabolic_rate=None):
+            max_muscle_power=None, max_metabolic_rate=None, muscles=None):
         """
 
         Parameters
@@ -1786,6 +1786,8 @@ class GaitScrutinyReport:
         max_metabolic_rate : float, optional
             Set the ymax value for all muscle metabolic consumption rate to
             this value.
+        muscles : optional 
+            TODO
 
         """
         self._title = title
@@ -1798,6 +1800,7 @@ class GaitScrutinyReport:
         self._max_muscle_force = max_muscle_force
         self._max_muscle_power = max_muscle_power
         self._max_metabolic_rate = max_metabolic_rate
+        self._muscles = muscles
 
     def add_simulation(self, name, sim, primary_leg, cycle_start, cycle_end,
             primary_strike, opposite_strike, toeoff=None, description=None,
@@ -2055,7 +2058,7 @@ class GaitScrutinyReport:
         def create_plate(subtitle, table, ylabel, pattern, dims, mset,
                 yticks=None, **kwargs):
             print 'Processing muscle %s.' % subtitle
-            f = pl.figure(figsize=(4 * dims[0], 4 * dims[1]))
+            f = pl.figure(figsize=(4 * dims[1], 3 * dims[0]))
             pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
     
             for loc, name in mset.items():
@@ -2066,6 +2069,7 @@ class GaitScrutinyReport:
     
                 if yticks: pl.yticks(yticks)
     
+            pl.tight_layout()
             pp.savefig(f)
     
         # Define muscles to use for the remaining sets of plots.
@@ -2119,120 +2123,163 @@ class GaitScrutinyReport:
         muscle_names['add_long'] = 'adductor longus'
         muscle_names['add_brev'] = 'adductor brevis'
     
-        mset1 = dict()
+        if self._muscles == None:
+            mset1 = dict()
     
-        # Quadriceps.
-        mset1[(0, 0)] = 'rect_fem'
-        mset1[(0, 1)] = 'vas_med'
-        mset1[(0, 2)] = 'vas_int'
-        mset1[(0, 3)] = 'vas_lat'
+            # Quadriceps.
+            mset1[(0, 0)] = 'rect_fem'
+            mset1[(0, 1)] = 'vas_med'
+            mset1[(0, 2)] = 'vas_int'
+            mset1[(0, 3)] = 'vas_lat'
     
-        # Hamstrings.
-        mset1[(1, 0)] = 'semimem'
-        mset1[(1, 1)] = 'semiten'
-        mset1[(1, 2)] = 'bifemsh'
-        mset1[(1, 3)] = 'bifemlh'
+            # Hamstrings.
+            mset1[(1, 0)] = 'semimem'
+            mset1[(1, 1)] = 'semiten'
+            mset1[(1, 2)] = 'bifemsh'
+            mset1[(1, 3)] = 'bifemlh'
     
-        # Dorsiflexors.
-        mset1[(2, 0)] = 'tib_ant'
-        mset1[(2, 1)] = 'ext_dig'
-        mset1[(2, 2)] = 'ext_hal'
-        mset1[(2, 3)] = 'per_tert'
+            # Dorsiflexors.
+            mset1[(2, 0)] = 'tib_ant'
+            mset1[(2, 1)] = 'ext_dig'
+            mset1[(2, 2)] = 'ext_hal'
+            mset1[(2, 3)] = 'per_tert'
     
-        # Plantarflexors.
-        mset1[(3, 0)] = 'med_gas'
-        mset1[(3, 1)] = 'lat_gas'
-        mset1[(3, 2)] = 'soleus'
-        mset1[(3, 3)] = 'tib_post'
+            # Plantarflexors.
+            mset1[(3, 0)] = 'med_gas'
+            mset1[(3, 1)] = 'lat_gas'
+            mset1[(3, 2)] = 'soleus'
+            mset1[(3, 3)] = 'tib_post'
     
-        # Define muscles to use for the remaining sets of plots.
-        mset2 = dict()
+            # Define muscles to use for the remaining sets of plots.
+            mset2 = dict()
     
-        # Torso.
-        mset2[(0, 0)] = 'ercspn'
-        mset2[(0, 1)] = 'extobl'
-        mset2[(0, 2)] = 'intobl'
-        mset2[(0, 3)] = 'psoas'
+            # Torso.
+            mset2[(0, 0)] = 'ercspn'
+            mset2[(0, 1)] = 'extobl'
+            mset2[(0, 2)] = 'intobl'
+            mset2[(0, 3)] = 'psoas'
     
-        # Butt muscles.
-        mset2[(1, 0)] = 'pect'
-        mset2[(1, 1)] = 'quad_fem'
-        mset2[(1, 2)] = 'gem'
-        mset2[(1, 3)] = 'peri'
+            # Butt muscles.
+            mset2[(1, 0)] = 'pect'
+            mset2[(1, 1)] = 'quad_fem'
+            mset2[(1, 2)] = 'gem'
+            mset2[(1, 3)] = 'peri'
     
-        # Thigh muscles.
-        mset2[(2, 0)] = 'grac'
-        mset2[(2, 1)] = 'sar'
-        mset2[(2, 2)] = 'tfl'
-        mset2[(2, 3)] = 'iliacus'
+            # Thigh muscles.
+            mset2[(2, 0)] = 'grac'
+            mset2[(2, 1)] = 'sar'
+            mset2[(2, 2)] = 'tfl'
+            mset2[(2, 3)] = 'iliacus'
     
-        # Plantarflexors.
-        mset2[(3, 0)] = 'flex_dig'
-        mset2[(3, 1)] = 'flex_hal'
-        mset2[(3, 2)] = 'per_brev'
-        mset2[(3, 3)] = 'per_long'
+            # Plantarflexors.
+            mset2[(3, 0)] = 'flex_dig'
+            mset2[(3, 1)] = 'flex_hal'
+            mset2[(3, 2)] = 'per_brev'
+            mset2[(3, 3)] = 'per_long'
     
-        # Define muscles to use for the remaining sets of plots.
-        mset3 = dict()
+            # Define muscles to use for the remaining sets of plots.
+            mset3 = dict()
     
-        mset3[(0, 0)] = 'glut_max1'
-        mset3[(0, 1)] = 'glut_max2'
-        mset3[(0, 2)] = 'glut_max3'
+            mset3[(0, 0)] = 'glut_max1'
+            mset3[(0, 1)] = 'glut_max2'
+            mset3[(0, 2)] = 'glut_max3'
     
-        mset3[(1, 0)] = 'glut_med1'
-        mset3[(1, 1)] = 'glut_med2'
-        mset3[(1, 2)] = 'glut_med3'
+            mset3[(1, 0)] = 'glut_med1'
+            mset3[(1, 1)] = 'glut_med2'
+            mset3[(1, 2)] = 'glut_med3'
     
-        mset3[(2, 0)] = 'glut_min1'
-        mset3[(2, 1)] = 'glut_min2'
-        mset3[(2, 2)] = 'glut_min3'
-        mset3[(2, 3)] = 'add_long'
+            mset3[(2, 0)] = 'glut_min1'
+            mset3[(2, 1)] = 'glut_min2'
+            mset3[(2, 2)] = 'glut_min3'
+            mset3[(2, 3)] = 'add_long'
     
-        mset3[(3, 0)] = 'add_mag1'
-        mset3[(3, 1)] = 'add_mag2'
-        mset3[(3, 2)] = 'add_mag3'
-        mset3[(3, 3)] = 'add_brev'
+            mset3[(3, 0)] = 'add_mag1'
+            mset3[(3, 1)] = 'add_mag2'
+            mset3[(3, 2)] = 'add_mag3'
+            mset3[(3, 3)] = 'add_brev'
 
-        msubnames = ['key locomotion muscles', 'misc muscles',
-                'remaining hip muscles']
-        msets = [mset1, mset2, mset3]
+            msubnames = ['key locomotion muscles', 'misc muscles',
+                    'remaining hip muscles']
+            msets = [mset1, mset2, mset3]
 
-        # Activations.
-        for i in range(3):
-            create_plate('activations (%s)' % msubnames[i],
+            # Activations.
+            for i in range(3):
+                create_plate('activations (%s)' % msubnames[i],
+                        'states', 'activation (-)', '%s_!_activation',
+                        (4, 4), msets[i],
+                        yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
+
+            # Forces.
+            for i in range(3):
+                if self._max_muscle_force: ylims = (0, self._max_muscle_force)
+                else: ylims = None
+                create_plate('forces (%s)' % msubnames[i],
+                        'Actuation_force', 'force (N)', '%s_!', (4, 4), msets[i],
+                        ylims=ylims)
+
+            # Power.
+            for i in range(3):
+                if self._max_muscle_power: ylims = (0, self._max_muscle_power)
+                else: ylims = None
+                create_plate('work rate / power (%s)' % msubnames[i],
+                        'Actuation_power', 'work rate (W)', '%s_!', (4, 4),
+                        msets[i], ylims=ylims)
+
+            # Metabolics.
+            try:
+                for i in range(3):
+                    if self._max_metabolic_rate:
+                        ylims = (0, self._max_metabolic_rate)
+                    else: ylims = None
+                    create_plate('metabolics (%s)' % msubnames[i],
+                            'ProbeReporter_probes',
+                            'metabolic consumption rate (W)',
+                            'metabolic_power_%s_!', (4, 4), msets[i],
+                            ylims=ylims)
+            except Exception, e:
+                print e.message
+        else:
+            n_rows = 0
+            n_cols = 0
+            for mk, mv in self._muscles.items():
+                if mk[0] > n_rows: n_rows = mk[0]
+                if mk[1] > n_cols: n_cols = mk[1]
+            grid = (n_rows + 1, n_cols + 1)
+
+            # Activations.
+            create_plate('activations',
                     'states', 'activation (-)', '%s_!_activation',
-                    (4, 4), msets[i],
+                    grid, self._muscles,
                     yticks=[0.0, 0.5, 1.0], interval=10, ylims=(0, 1))
 
-        # Forces.
-        for i in range(3):
+            # Forces.
             if self._max_muscle_force: ylims = (0, self._max_muscle_force)
             else: ylims = None
-            create_plate('forces (%s)' % msubnames[i],
-                    'Actuation_force', 'force (N)', '%s_!', (4, 4), msets[i],
+            create_plate('forces',
+                    'Actuation_force', 'force (N)', '%s_!', grid,
+                    self._muscles,
                     ylims=ylims)
 
-        # Power.
-        for i in range(3):
+            # Power.
             if self._max_muscle_power: ylims = (0, self._max_muscle_power)
             else: ylims = None
-            create_plate('work rate / power (%s)' % msubnames[i],
-                    'Actuation_power', 'work rate (W)', '%s_!', (4, 4),
-                    msets[i], ylims=ylims)
+            create_plate('work rate / power',
+                    'Actuation_power', 'work rate (W)', '%s_!', grid,
+                    self._muscles, ylims=ylims)
 
-        # Metabolics.
-        try:
-            for i in range(3):
+            # Metabolics.
+            try:
                 if self._max_metabolic_rate:
                     ylims = (0, self._max_metabolic_rate)
                 else: ylims = None
-                create_plate('metabolics (%s)' % msubnames[i],
+                create_plate('metabolics',
                         'ProbeReporter_probes',
                         'metabolic consumption rate (W)',
-                        'metabolic_power_%s_!', (4, 4), msets[i],
+                        'metabolic_power_%s_!', grid, self._muscles,
                         ylims=ylims)
-        except Exception, e:
-            print e.message
+            except Exception, e:
+                print e.message
+
 
         # Verification.
         # -------------
