@@ -185,3 +185,22 @@ def enable_probes(model_fpath):
         model.updProbeSet().get(i_probe).setDisabled(False)
     model.print(model_fpath)
 
+def strengthen_muscles(model_fpath, new_model_fpath, scale_factor):
+    """Scales all muscles' maximum isometric force by `scale_factor`.
+
+    Parameters
+    ----------
+    model_fpath : str
+        Path to model (.OSIM) file for the model to strengthen.
+    new_model_fpath : str
+        Path to which to save the strengthened model.
+    scale_factor : float
+        All muscle optimal forces are scaled by this number.
+
+    """
+    m = osm.Model(model_fpath)
+    for i_m in range(m.getMuscles().getSize()):
+        m.updMuscles().get(i_m).setMaxIsometricForce(
+                m.getMuscles().get(i_m).getMaxIsometricForce() * scale_factor)
+    m.print(new_model_fpath)
+

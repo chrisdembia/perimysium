@@ -8,6 +8,7 @@ import collections
 import os
 
 import numpy as np
+import matplotlib
 import pylab as pl
 import tables
 
@@ -1014,6 +1015,126 @@ def plot_activations(sim, muscles=None, interval=10, subplot_width=4,
                     color=(0.5, 0.5, 0.5))
 
 
+def plot_muscle_forces(sim, muscles=None, interval=10, subplot_width=4,
+        shift_data=None, percent_gait_cycle=False,
+        draw_vertical_line=False, max_force=None):
+    """Plots muscle forces using matplotlib.
+
+    Parameters
+    ----------
+    sim : tables.Group, or dict/collections.OrderedDict of tables.Group's
+        A pyTables group holding tables docked from a simulation (e.g., CMC).
+    muscles : list of str's, optional
+        The names of muscle for which to plot forces. By default, plots
+        forces for all muscles.
+    interval : int
+        Interval of data points to skip/include in the plot (states files have
+        way too many data points for plots).
+    subplot_width : int, optional (default: 4)
+        The width of the figure in number of subplots. If the user requests a
+        figure for less muscles than subplot_width, then the subplots are
+        stacked in one column (subplot_width is effectively 1).
+    shift_data : dict, optional
+        To shift data to the gait cycle, provide a dict with the first 3
+        arguments of :py:meth:`epimysium.postprocessing.shift_data_to_cycle`,
+        as a dict, with keys that are the names of those 3 arguments (
+        arbitrary_cycle_start_time, arbitrary_cycle_end_time,
+        new_cycle_start_time). Must be a dict of dicts if sim is a dict.
+    percent_gait_cycle : bool, optional (default: False)
+        Convert x value from time to percent gait cycle. Really, percent of
+        time range provided.
+    draw_vertical_line : bool, optional (default: None)
+        Draw a vertical line on all plots by setting this argument to the time
+        at which the vertical line is desired. If `percent_gait_cycle` is True,
+        then the value of this argument must be in percent gait cycle.
+    max_force : float, optional
+        Y-max for the plots.
+
+    Returns
+    -------
+    fig : matplotlib.figure
+        The figure object, to manipulate at your will.
+
+    Examples
+    --------
+    Simple:
+
+        >>> plot_muscle_forces(h5file, sim)
+
+    Multiple simulations:
+
+        >>> plot_muscle_forces(h5file, {'simA': simA, 'simB': simB})
+
+    Specifying the muscles:
+
+        >>> plot_muscle_forces(h5file, sim, ['soleus_r', 'tib_ant_r'])
+
+    Shifting the data:
+
+        >>> plot_muscle_forces(h5file, sim,
+        ...     shift_data={'arbitrary_cycle_start_time': 0.1,
+        ...     'arbitrary_cycle_end_time': 0.9, 'new_cycle_start_time': 0.3})
+
+    """
+    # TODO average both limbs.
+    if muscles == None:
+        muscles = sim_group.Actuation_force.colnames
+
+    n_muscles = len(muscles)
+
+    if n_muscles >= subplot_width:
+        n_plots_wide = subplot_width
+        n_plots_tall = np.floor(n_muscles / subplot_width)
+        if n_muscles / float(subplot_width) > n_plots_tall:
+            n_plots_tall += 1
+    else:
+        n_plots_wide = 1
+        n_plots_tall = n_muscles
+
+    fig = pl.figure(figsize=(4 * n_plots_wide, 4 * n_plots_tall))
+
+    # Used below.
+    def plot_single_sim_muscle_force(i, sim, muscle, shiftinfo, **kwargs):
+        x = sim.Actuation_force.cols.time[::interval]
+        y = sim.Actuation_force.col(muscle)[::interval]
+        if shift_data != None:
+            x, y = shift_data_to_cycle(
+                    shiftinfo['arbitrary_cycle_start_time'],
+                    shiftinfo['arbitrary_cycle_end_time'],
+                    shiftinfo['new_cycle_start_time'], x, y)
+        if percent_gait_cycle:
+            x = (x - x[0]) / (x[-1] - x[0]) * 100
+        pl.plot(x, y, 'k', **kwargs)
+        pl.ylim(ymin=0)
+        if max_force: pl.ylim(ymax=max_force)
+        pl.xlim(xmin=x[0], xmax=x[-1])
+        pl.title(muscle)
+        if i % n_plots_wide == 0:
+            pl.ylabel('force (N)')
+        if percent_gait_cycle:
+            pl.xlabel('percent gait cycle')
+        else:
+            pl.xlabel('time (s)')
+
+    for i, muscle in enumerate(muscles):
+        pl.subplot(n_plots_tall, n_plots_wide, i+1)
+        if type(sim) == dict or type(sim) == collections.OrderedDict:
+            # Multiple simulations to compare.
+            i_sim = 0
+            for k, v in sim.items():
+                i_sim += 1
+                plot_single_sim_muscle_force(i, v, muscle, shift_data[k],
+                        lw=i_sim)
+            pl.legend(sim.keys())
+        else:
+            # Just one simulation.
+            plot_single_sim_muscle_force(i, sim, muscle, shift_data)
+        if draw_vertical_line != None:
+            pl.plot(draw_vertical_line * np.array([1, 1]), [0, 1],
+                    color=(0.5, 0.5, 0.5))
+    return fig
+
+
 def shift_data_to_cycle(
         arbitrary_cycle_start_time, arbitrary_cycle_end_time,
         new_cycle_start_time, time, ordinate, cut_off=False):
@@ -1418,9 +1539,9 @@ def muscle_contribution_to_joint_torque(muscle_torque, total_joint_torque):
     return np.sum(muscle_torque / total) / delta
 
 
-def plot_gait_kinematics(kin, primary_leg, first_footstrike,
-        second_footstrike, opposite_footstrike,
-        toeoff_time=None):
+def plot_gait_kinematics(kin, primary_leg, cycle_start, cycle_end,
+        primary_footstrike, opposite_footstrike,
+        toeoff_time=None, do_plot_opposite=True):
     """Plots hip, knee, and ankle angles, in degrees, as a function of percent
     gait cycle, for one gait cycle. Gait cycle starts with a footstrike (start
     of stance). Kinematics is plotted for both legs; the data for the
@@ -1439,10 +1560,12 @@ def plot_gait_kinematics(kin, primary_leg, first_footstrike,
         Kinematics_q group from a simulation.
     primary_leg : str; 'right' or 'left'
         The first and second foot strikes are for which leg?
-    first_footstrike : float
-        Time, in seconds, of the foot strike that starts this gait cycle.
-    second_footstrike : float
-        Time, in seconds, of the foot strike that ends this gait cycle.
+    cycle_start : float
+        Time, in seconds, at which the gait cycle starts.
+    cycle_end : float
+        Time, in seconds, at which the gait cycle ends.
+    primary_footstrike : float
+        Time, in seconds, at which the primary leg foot-strikes.
     opposite_footstrike : float
         In between the other two footstrikes, the opposite foot also strikes
         the ground. What's the time at which this happens? This is used to
@@ -1451,6 +1574,9 @@ def plot_gait_kinematics(kin, primary_leg, first_footstrike,
     toeoff_time : bool, optional
         Draw a vertical line on the plot to indicate when the primary foot
         toe-off occurs by providing the time at which this occurs.
+    do_plot_opposite : bool, optional (default: True)
+        Plot data for the opposite leg, shifted so that the data starts at
+        the start of stance.
 
     """
     # TODO compare to experimental data.
@@ -1463,16 +1589,22 @@ def plot_gait_kinematics(kin, primary_leg, first_footstrike,
         raise Exception("'primary_leg' is '%s'; it must "
                 "be 'left' or 'right'." % primary_leg)
 
+    duration = cycle_end - cycle_start
+
+    # To get degree symbol in y ticks.
+    def to_degrees(y, position):
+        return str(y) + '$\mathbf{^{\circ}}$'
+
     def plot_for_a_leg(coordinate_name, leg, new_start, color='k', mult=1.0):
         time, angle = shift_data_to_cycle(
-                first_footstrike, second_footstrike, new_start,
-                kin.cols.time,
+                cycle_start, cycle_end, new_start,
+                kin.cols.time[:],
                 getattr(kin.cols, '%s_%s' % (coordinate_name, leg[0])))
         pl.plot(percent_duration(time), mult * angle, color=color,
                 label=leg)
 
     def plot_primary_leg(coordinate_name, **kwargs):
-        plot_for_a_leg(coordinate_name, primary_leg, first_footstrike,
+        plot_for_a_leg(coordinate_name, primary_leg, primary_footstrike,
                 **kwargs)
 
     def plot_opposite_leg(coordinate_name, **kwargs):
@@ -1481,22 +1613,29 @@ def plot_gait_kinematics(kin, primary_leg, first_footstrike,
 
     def plot_coordinate(index, name, negate=False, label=None):
         ax = pl.subplot(3, 1, index)
+
+        pl.gca().yaxis.set_major_formatter(
+                matplotlib.ticker.FuncFormatter(to_degrees))
         if negate:
             plot_primary_leg(name, mult=-1.0)
-            plot_opposite_leg(name, mult=-1.0)
+            if do_plot_opposite:
+                plot_opposite_leg(name, mult=-1.0)
         else:
             plot_primary_leg(name)
-            plot_opposite_leg(name)
+            if do_plot_opposite:
+                plot_opposite_leg(name)
         # TODO this next line isn't so great of an idea:
         if label == None:
             label = name.replace('_', ' ')
         pl.ylabel('%s (degrees)' % label)
-        pl.legend()
+        if do_plot_opposite:
+            pl.legend()
 
         if toeoff_time != None:
             # 'pgc' is percent gait cycle
             toeoff_pgc = percent_duration_single(toeoff_time,
-                first_footstrike, second_footstrike)
+                    primary_footstrike, duration +
+                    primary_footstrike)
             pl.plot(toeoff_pgc * np.array([1, 1]), ax.get_ylim(),
                     c=(0.5, 0.5, 0.5))
 
