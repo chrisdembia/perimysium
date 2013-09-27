@@ -22,6 +22,48 @@ def nearest_index(array, val):
     return np.abs(array - val).argmin()
 
 
+def metabolic_expenditure_const_eff(power, exclude=None, concentric_eff=0.25,
+        eccentric_eff=-1.20):
+    """Computes metabolic muscle power expenditure using constant muscle
+    efficiencies for concentric and eccentric contraction. Defaut efficiencies
+    are accepted in the literature (Voinescu, 2012). Assumes muscles are the
+    actuators with names ending in '_l' or '_r'.
+
+    Parameters
+    ----------
+    power : pytables.Table of an Actuation_power.sto Storage file.
+    exclude : list of str's, optional
+        Names of columns in `power` to exclude in the computation, in case
+        there are columns for actuators that are not muscles but whose name
+        still ends in '_l' or '_r'.
+    concentric_eff : float, optional
+        Efficiency of concentric contraction (shortening).
+    eccentric_eff : float, optional
+        Efficiency of eccentric contraction (lengthening). This is when a
+        muscle is generating force even though it is lengthening. That is, the
+        muscle is "braking". This should be negative, because it still costs
+        energy to "brake" a muscle.
+
+    Returns
+    -------
+    met_expenditure_rate : np.array
+        Metabolic rate throughout the simulation.
+    met_expenditure_avg_rate : float
+        Average metabolic rate over the time interval.
+
+    """
+    met_expenditure_rate = np.zeros(len(power.cols.time))
+    for actu_name in power.colnames:
+        if (actu_name.endswith('_l') or actu_name.endswith('_r') and (
+            (actu_name not in exclude) if exclude else None)):
+            # Boolean expressions to sort out positive and negative work.
+            met_expenditure_rate += (
+                    ((power.col(actu_name) > 0) / concentric_eff +
+                            (power.col(actu_name) < 0) / eccentric_eff) *
+                    power.col(actu_name))
+    return met_expenditure_rate, avg(power.cols.time, met_expenditure_rate)
+
+
 def sum_of_squared_activations(states_table):
     """Computes the sum, across all muscles, of the square of muscle
     activations.
@@ -325,6 +367,228 @@ def rms(array):
     """
     return np.sqrt(np.mean(array**2))
 
+
+def plot_rra_gait_info(rra_results_dir):
+    """Plots the information useful to tweaking RRA tasks and actuators:
+    residual forces and moments, as well as the kinematics errors that are
+    important for gait.
+
+    Parameters
+    ----------
+    rra_results_dir : str
+        Path to folder containing results from RRA. We'll grab the
+        Actuation_force and pErr Storage files.
+
+    Returns
+    -------
+    fig : pylab.figure
+
+    """
+    for fname in os.listdir(rra_results_dir):
+        if fname.endswith('pErr.sto'):
+            pErr_fpath = os.path.join(rra_results_dir, fname)
+        elif fname.endswith('Actuation_force.sto'):
+            actu_fpath = os.path.join(rra_results_dir, fname)
+
+    legend_kwargs = {'loc': 'best', 'prop': {'size': 12}}
+
+    pErr = dataman.storage2numpy(pErr_fpath)
+    actu = dataman.storage2numpy(actu_fpath)
+
+    fig = pl.figure(figsize=(12, 16))
+    pl.subplot(421)
+    pl.title('residual forces')
+    for coln in ['FX', 'FY', 'FZ']:
+        pl.plot(actu['time'], actu[coln], label=coln)
+    pl.ylabel('force (N)')
+    pl.legend(**legend_kwargs)
+    pl.ylim((-40, 40))
+
+    pl.subplot(422)
+    pl.title('residual moments')
+    for coln in ['MX', 'MY', 'MZ']:
+        pl.plot(actu['time'], actu[coln], label=coln)
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+    pl.ylim((-40, 40))
+
+    pl.subplot(423)
+    m2cm = 100
+    pl.title('pelvis translation')
+    for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
+        pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
+    pl.ylabel('translation error (cm)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot(424)
+    rad2deg = np.rad2deg(1.0)
+    pl.title('pelvis rotations')
+    for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+    pl.ylabel('rotation error (deg)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot(425)
+    pl.title('left lower limb')
+    for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+    pl.ylabel('rotation error (deg)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot(426)
+    pl.title('right lower limb')
+    for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+    pl.ylabel('rotation error (deg)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot(427)
+    pl.title('lumbar rotations')
+    for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+    pl.ylabel('rotation error (deg)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot(428)
+    pl.title('hips')
+    labels = ['rot_r', 'rot_l', 'add_r', 'add_l']
+    for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
+        'hip_adduction_r', 'hip_adduction_l']):
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
+    pl.ylabel('rotation error (deg)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+
+    return fig
+
+
+def plot_cmc_gait_info(cmc_results_dir):
+    """
+
+    Parameters
+    ----------
+    cmc_results_dir : str
+        Path to folder containing results from CMC. We'll grab the
+        Actuation_force and pErr Storage files.
+
+    Returns
+    -------
+    fig : pylab.figure
+
+    """
+    for fname in os.listdir(cmc_results_dir):
+        if fname.endswith('pErr.sto'):
+            pErr_fpath = os.path.join(cmc_results_dir, fname)
+        elif fname.endswith('Actuation_force.sto'):
+            actu_fpath = os.path.join(cmc_results_dir, fname)
+
+    legend_kwargs = {'loc': 'best', 'prop': {'size': 12}}
+
+    pErr = dataman.storage2numpy(pErr_fpath)
+    actu = dataman.storage2numpy(actu_fpath)
+
+    fig = pl.figure(figsize=(16, 16))
+    pl.subplot2grid((4, 4), (0, 0))
+    pl.title('residual forces')
+    for coln in ['FX', 'FY', 'FZ']:
+        pl.plot(actu['time'], actu[coln], label=coln)
+    pl.ylabel('force (N)')
+    pl.legend(**legend_kwargs)
+    pl.ylim((-40, 40))
+
+    pl.subplot2grid((4, 4), (0, 1))
+    pl.title('residual moments')
+    for coln in ['MX', 'MY', 'MZ']:
+        pl.plot(actu['time'], actu[coln], label=coln)
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+    pl.ylim((-40, 40))
+
+    pl.subplot2grid((4, 4), (1, 0))
+    m2cm = 100
+    pl.title('pelvis translation')
+    for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
+        pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
+    pl.ylabel('translation error (cm)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (1, 1))
+    rad2deg = np.rad2deg(1.0)
+    pl.title('pelvis rotations')
+    for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+    pl.ylabel('rotation error (deg)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (2, 0))
+    pl.title('left lower limb')
+    for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+    pl.ylabel('rotation error (deg)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (2, 2))
+    pl.title('left lower limb reserves')
+    for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
+        pl.plot(actu['time'], actu['reserve_%s' % coln],
+                label=coln.split('_')[0])
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (2, 1))
+    pl.title('right lower limb')
+    for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+    pl.ylabel('rotation error (deg)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (2, 3))
+    pl.title('right lower limb reserves')
+    for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
+        pl.plot(actu['time'], actu['reserve_%s' % coln],
+                label=coln.split('_')[0])
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (3, 0))
+    pl.title('lumbar rotations')
+    for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+    pl.ylabel('rotation error (deg)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (3, 2))
+    pl.title('lumbar rotations reserves')
+    for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
+        pl.plot(actu['time'], actu['reserve_%s' % coln],
+                label=coln.split('_')[-1])
+    pl.ylabel('torque (N-m)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (3, 1))
+    pl.title('hips')
+    labels = ['rot_r',' rot_l', 'add_r',' add_l']
+    for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
+        'hip_adduction_r', 'hip_adduction_l']):
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
+    pl.ylabel('rotation error (deg)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+
+    pl.subplot2grid((4, 4), (3, 1))
+    pl.title('hips')
+    labels = ['rot_r',' rot_l', 'add_r',' add_l']
+    for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
+        'hip_adduction_r', 'hip_adduction_l']):
+        pl.plot(actu['time'], actu['reserve_%s' % coln], label=labels[i])
+    pl.ylabel('torque (N-m)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+
+    return fig
 
 def plot_kinematics_verification(pErr_table,
         n_max=None, violators_only=False, show_legend=False, big_picture=None):
@@ -1632,10 +1896,16 @@ def plot_gait_kinematics(kin, primary_leg, cycle_start, cycle_end,
             pl.legend()
 
         if toeoff_time != None:
+            duration = cycle_end - cycle_start
             # 'pgc' is percent gait cycle
-            toeoff_pgc = percent_duration_single(toeoff_time,
-                    primary_footstrike, duration +
-                    primary_footstrike)
+            if toeoff_time > primary_footstrike:
+                toeoff_pgc = percent_duration_single(toeoff_time,
+                        primary_footstrike, duration +
+                        primary_footstrike)
+            else:
+                chunk1 = cycle_end - primary_footstrike
+                chunk2 = toeoff_time - cycle_start
+                toeoff_pgc = (chunk1 + chunk2) / duration * 100.0
             pl.plot(toeoff_pgc * np.array([1, 1]), ax.get_ylim(),
                     c=(0.5, 0.5, 0.5))
 
@@ -1648,8 +1918,8 @@ def plot_gait_kinematics(kin, primary_leg, cycle_start, cycle_end,
     pl.xlabel('percent gait cycle')
 
 
-def plot_gait_torques(actu, primary_leg, first_footstrike,
-        second_footstrike, opposite_footstrike,
+def plot_gait_torques(actu, primary_leg, cycle_start, cycle_end,
+        primary_footstrike, opposite_footstrike,
         toeoff_time=None):
     """Plots hip, knee, and ankle torques, as a function of percent
     gait cycle, for one gait cycle. Gait cycle starts with a footstrike (start
@@ -1665,15 +1935,20 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
 
     Parameters
     ----------
-    actu : pytables.Group
+    actu : pytables.Group or dict
         Actuation_force group from a simulation containing joint torques
-        (probably an RRA output).
+        (probably an RRA output). If dict, must have fields 'time',
+        'hip_flexion_r', 'knee_angle_r' (extension), 'ankle_angle_r'
+        (dorsiflexion), 'hip_flexion_l', 'knee_angle_l' (extension),
+        'ankle_angle_l' (dorsiflexion).
     primary_leg : str; 'right' or 'left'
         The first and second foot strikes are for which leg?
-    first_footstrike : float
-        Time, in seconds, of the foot strike that starts this gait cycle.
-    second_footstrike : float
-        Time, in seconds, of the foot strike that ends this gait cycle.
+    cycle_start : float
+        Time, in seconds, at which the gait cycle starts.
+    cycle_end : float
+        Time, in seconds, at which the gait cycle ends.
+    primary_footstrike : float
+        Time, in seconds, at which the primary leg foot-strikes.
     opposite_footstrike : float
         In between the other two footstrikes, the opposite foot also strikes
         the ground. What's the time at which this happens? This is used to
@@ -1695,15 +1970,19 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
                 "be 'left' or 'right'." % primary_leg)
 
     def plot_for_a_leg(coordinate_name, leg, new_start, color='k', mult=1.0):
-        time, angle = shift_data_to_cycle(
-                first_footstrike, second_footstrike, new_start,
-                actu.cols.time,
-                getattr(actu.cols, '%s_%s' % (coordinate_name, leg[0])))
+        if type(actu) == np.ndarray:
+            raw_time = actu['time']
+            raw_y = actu[coordinate_name + '_%s_moment' % leg[0]] # TODO uhoh
+        else:
+            raw_time = actu.cols.time[:]
+            raw_y = getattr(actu.cols, '%s_%s' % (coordinate_name, leg[0]))
+        time, angle = shift_data_to_cycle( cycle_start, cycle_end, new_start,
+                raw_time, raw_y)
         pl.plot(percent_duration(time), mult * angle, color=color,
                 label=leg)
 
     def plot_primary_leg(coordinate_name, **kwargs):
-        plot_for_a_leg(coordinate_name, primary_leg, first_footstrike,
+        plot_for_a_leg(coordinate_name, primary_leg, primary_footstrike,
                 **kwargs)
 
     def plot_opposite_leg(coordinate_name, **kwargs):
@@ -1725,18 +2004,25 @@ def plot_gait_torques(actu, primary_leg, first_footstrike,
         pl.legend()
 
         if toeoff_time != None:
+            duration = cycle_end - cycle_start
             # 'pgc' is percent gait cycle
-            toeoff_pgc = percent_duration_single(toeoff_time,
-                first_footstrike, second_footstrike)
+            if toeoff_time > primary_footstrike:
+                toeoff_pgc = percent_duration_single(toeoff_time,
+                        primary_footstrike, duration +
+                        primary_footstrike)
+            else:
+                chunk1 = cycle_end - primary_footstrike
+                chunk2 = toeoff_time - cycle_start
+                toeoff_pgc = (chunk1 + chunk2) / duration * 100.0
             pl.plot(toeoff_pgc * np.array([1, 1]), ax.get_ylim(),
                     c=(0.5, 0.5, 0.5))
 
         pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
 
     pl.figure(figsize=(4, 12))
-    plot_coordinate(1, 'hip_flexion', label='hip flexion torque')
-    plot_coordinate(2, 'knee_angle', negate=True, label='knee flexion torque')
-    plot_coordinate(3, 'ankle_angle', label='ankle dorsiflexion torque')
+    plot_coordinate(1, 'hip_flexion', label='hip flexion moment')
+    plot_coordinate(2, 'knee_angle', negate=True, label='knee flexion moment')
+    plot_coordinate(3, 'ankle_angle', label='ankle dorsiflexion moment')
     pl.xlabel('percent gait cycle')
 
 
@@ -1921,12 +2207,12 @@ class GaitScrutinyReport:
                     table.cols.time[::interval],
                     getattr(table.cols,
                         coordinate_name.replace('!', leg[0]))[::interval],
-                    cut_off=True)
+                    )#cut_off=True)
     
             if mult != None: ordinate *= mult
     
             pl.plot(percent_duration(time), ordinate, color=color,
-                        label=leg, lw=1.5, **kwargs)
+                        label=leg, **kwargs)
     
         def plot_primary_leg(table, series, coordinate_name, **kwargs):
             plot_for_a_leg(table, series, coordinate_name,
@@ -1961,7 +2247,7 @@ class GaitScrutinyReport:
     
                 # TODO this next line isn't so great of an idea:
                 if label: pl.ylabel('%s (%s)' % (label, units))
-                if title: pl.title(title)
+                if title: pl.title(title, fontsize=12)
     
             def plot_landmarks(series, ylims, **kwargs):
                 if series['toeoff'] != None:
@@ -1978,25 +2264,25 @@ class GaitScrutinyReport:
     
                     if ylims == None: ylims = ax.get_ylim()
                     pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
-                            c=(0.8, 0.8, 0.8), zorder=0, lw=1.5, **kwargs)
+                            c=(0.8, 0.8, 0.8), zorder=0, **kwargs)
     
             if type(grid) == tuple:        
                 ax = pl.subplot2grid(grid, loc)
             else:
-                ax = pl.subplot(grid[loc[0], loc[1])
+                ax = pl.subplot(grid[loc[0], loc[1]])
     
             # Add a curve to this plot for each sim and each comp.
             for comp in self._comps:
-                plot_a_series(comp, label, ls='--', **kwargs)
+                plot_a_series(comp, label, **kwargs)
             for sim in self._sims:
-                plot_a_series(sim, label, **kwargs)
+                plot_a_series(sim, label, color='r', lw=1.5, **kwargs)
     
             # Must be done after all other plotting, so that we use the correct
             # ylims.
             for comp in self._comps:
-                plot_landmarks(comp, ylims, ls='--')
+                plot_landmarks(comp, ylims)
             for sim in self._sims:
-                plot_landmarks(sim, ylims)
+                plot_landmarks(sim, ylims, color='r', lw=1.5)
     
             pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
     
@@ -2022,38 +2308,43 @@ class GaitScrutinyReport:
         # Joint angles
         # ------------
         print 'Processing joint angles.'
-        fkin = pl.figure(figsize=(5, 12))
+        fkin = pl.figure(figsize=(3.5, 7.5))
+        gs = pl.GridSpec(3, 1)
         pl.suptitle('JOINT ANGLES', weight='bold')
     
         def plot_kin(index, name, **kwargs):
-            plot_coordinate((3, 1), (index, 0), 'Kinematics_q',
+            plot_coordinate(gs, (index, 0), 'Kinematics_q',
                     '%s_!' % name, 'degrees', **kwargs)
     
-        plot_kin(0, 'hip_flexion', title='hip', label='flexion')
-        plot_kin(1, 'knee_angle', negate=True, label='flexion', title='knee')
-        plot_kin(2, 'ankle_angle', label='dorsiflexion', title='ankle')
+        plot_kin(0, 'hip_flexion', title='hip', label='hip flexion')
+        plot_kin(1, 'knee_angle', negate=True, label='ankle flexion',
+                title='knee')
+        plot_kin(2, 'ankle_angle', label='ankle dorsiflexion', title='ankle')
         pl.xlabel('percent gait cycle')
     
+        gs.tight_layout(fkin, rect=[0, 0, 1, 0.95])
         pp.savefig(fkin)
 
         # Joint torques!
         # --------------
         if self._do_plot_joint_torques:
             print 'Processing joint torques.'
-            fjt = pl.figure(figsize=(6, 12))
+            fjt = pl.figure(figsize=(3.5, 7.5))
+            gs = pl.GridSpec(3, 1)
             pl.suptitle('JOINT TORQUES', weight='bold')
     
             def plot_jt(index, name, **kwargs):
-                plot_coordinate((3, 1), (index, 0), 'joint_torques',
+                plot_coordinate(gs, (index, 0), 'joint_torques',
                         '%s_!' % name, 'N-m', **kwargs)
     
-            plot_jt(0, 'hip_flexion', title='hip', label='flexion torque')
-            plot_jt(1, 'knee_angle', negate=True, label='flexion torque',
+            plot_jt(0, 'hip_flexion', title='hip', label='hip flexion moment')
+            plot_jt(1, 'knee_angle', negate=True, label='knee flexion moment',
                     title='knee')
-            plot_jt(2, 'ankle_angle', negate=True,
-                    label='plantarflexion torque', title='ankle')
+            plot_jt(2, 'ankle_angle',
+                    label='ankle dorsiflexion moment', title='ankle')
             pl.xlabel('percent gait cycle')
     
+            gs.tight_layout(fjt, rect=[0, 0, 1, 0.95])
             pp.savefig(fjt)
     
         # Muscles!
@@ -2061,18 +2352,19 @@ class GaitScrutinyReport:
         def create_plate(subtitle, table, ylabel, pattern, dims, mset,
                 yticks=None, **kwargs):
             print 'Processing muscle %s.' % subtitle
-            f = pl.figure(figsize=(4 * dims[1], 3 * dims[0]))
+            f = pl.figure(figsize=(3.5 * dims[1], 2.5 * dims[0]))
+            gs = pl.GridSpec(dims[0], dims[1])
             pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
     
             for loc, name in mset.items():
-                plot_coordinate(dims, loc, table,
+                plot_coordinate(gs, loc, table,
                         pattern % name, title=muscle_names[name], **kwargs)
                 if loc[1] == 0: pl.ylabel(ylabel)
-                if loc[0] == 3: pl.xlabel('percent gait cycle')
+                if loc[0] == (dims[0] - 1): pl.xlabel('percent gait cycle')
     
                 if yticks: pl.yticks(yticks)
     
-            pl.tight_layout()
+            gs.tight_layout(f, rect=[0, 0, 1, 0.95])
             pp.savefig(f)
     
         # Define muscles to use for the remaining sets of plots.

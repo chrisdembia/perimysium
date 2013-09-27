@@ -22,7 +22,7 @@
 # Authors: Christopher Dembia, Thomas Uchida
 # Stanford University
 
-"""Modifying OpenSim Model's.
+"""Modifying OpenSim Model's, and any other OpenSim object.
 
 """
 
@@ -203,4 +203,170 @@ def strengthen_muscles(model_fpath, new_model_fpath, scale_factor):
         m.updMuscles().get(i_m).setMaxIsometricForce(
                 m.getMuscles().get(i_m).getMaxIsometricForce() * scale_factor)
     m.print(new_model_fpath)
+
+
+
+
+class Scale:
+    """Wrapper of org.opensim.modeling.Scale, that adds a convenience
+    constructor.
+
+    """
+    def __init__(self, body_name, x, y, z, scale_set=None):
+        """
+        Parameters
+        ----------
+        body_name : str
+            org.opensim.modeling.Scale.setSegmentName(body_name)
+        x, y, z : float
+            org.opensim.modeling.Scale.setScaleFactors([x, y, z])
+        scaleset : org.opensim.modeling.ScaleSet, optional
+            A ScaleSet to adopt-and-append the org.opensim.modeling.Scale to.
+
+        """
+        self.scale = osm.Scale()
+        self.scale.setSegmentName(body_name)
+        self.scale.setScaleFactors([x, y, z])
+        if scale_set:
+            scale_set.cloneAndAppend(self.scale)
+
+class Measurement:
+    """Wrapper of org.opensim.modeling.Measurement with convenience methods.
+
+    """
+
+    def __init__(self, name, measurement_set=None):
+        """
+        Parameters
+        ----------
+        name : str
+            org.opensim.modeling.Measurement.setName(name)
+        measurement_set : org.opensim.modeling.MeasurementSet, optional
+            A MeasurementSet to adopt-and-append the
+            org.opensim.modeling.Measurement to.
+
+        """
+        self.measurement = osm.Measurement()
+        self.measurement.setName(name)
+        if measurement_set:
+            measurement_set.adoptAndAppend(self.measurement)
+
+    def add_bodyscale(self, name, axes='XYZ'):
+        """Adds a BodyScale to the Measurement.
+
+        Parameters
+        ----------
+        name : str
+            org.opensim.modeling.BodyScale.setName(name)
+        axes : str, optional
+            e.g., 'X', 'XY', ...
+            org.opensim.modeling.BodyScale.setAxisNames().
+            Default is isometric.
+
+        """
+        bs = osm.BodyScale()
+        bs.setName(name)
+        axis_names = osm.ArrayStr()
+        for ax in axes:
+            axis_names.append(ax)
+        bs.setAxisNames(axis_names)
+        self.measurement.getBodyScaleSet().cloneAndAppend(bs)
+
+    def add_bodyscale_bilateral(self, name, *args, **kwargs):
+        """Adds a BodyScale to both sides of a model. If `name` is 'calf', then
+        the same BodyScale is added to the two bodies 'calf_l' and 'calf_r'.
+
+        Parameters
+        ----------
+        name : str
+            Shared prefix of the body.
+        axes : list of str's
+            See `add_bodyscale`.
+        """
+        self.add_bodyscale('%s_l' % name, *args, **kwargs)
+        self.add_bodyscale('%s_r' % name, *args, **kwargs)
+
+    def add_markerpair(self, marker0, marker1):
+        """Adds a MarkerPair to the Measurement's MarkerPairSet.
+
+        Parameters
+        ----------
+        marker0 : str
+            Name of the first marker in the pair.
+        marker1 : str
+            Name of the second marker in the pair.
+
+        """
+        mp = osm.MarkerPair()
+        mp.setMarkerName(0, marker0)
+        mp.setMarkerName(1, marker1)
+        self.measurement.getMarkerPairSet().cloneAndAppend(mp)
+
+    def add_markerpair_bilateral(self, marker0, marker1):
+        """Adds two MarkerPair's to the Measurement's MarkerPairSet; assuming
+        the name convention: if `marker0` is 'Heel', and `marker1` is 'Toe',
+        then we add the following marker pairs: 'RHeel' and 'RToe', and 'LHeel'
+        and 'LToe'.
+
+        """
+        self.add_markerpair('L%s' % marker0, 'L%s' % marker1)
+        self.add_markerpair('R%s' % marker0, 'R%s' % marker1)
+
+
+class IKTaskSet:
+    """Wrapper of org.opensim.modeling.IKTaskSet with convenience methods.
+
+    """
+    def __init__(self, iktaskset=None):
+        """Creates an org.opensim.modeling.IKTaskSet, or just uses the one
+        provided, if provided.
+
+        """
+        if iktaskset:
+            self.iktaskset = iktaskset
+        else:
+            self.iktaskset = osm.IKTaskSet()
+
+    def add_ikmarkertask(self, name, do_apply, weight):
+        """Creates an IKMarkerTask and appends it to the IKTaskSet.
+
+        Parameters
+        ----------
+        name : str
+            org.opensim.modeling.IKMarkerTask.setName(name)
+        do_apply : bool
+            org.opensim.modeling.IKMarkerTask.setApply(do_apply)
+        weight : float
+            org.opensim.modeling.IKMarkerTask.setWeight(weight)
+
+        """
+        ikt = osm.IKMarkerTask()
+        ikt.setName(name)
+        ikt.setApply(do_apply)
+        ikt.setWeight(weight)
+        self.iktaskset.cloneAndAppend(ikt)
+
+    def add_ikmarkertask_bilateral(self, name, do_apply, weight):
+        """Adds two IKMarkerTask's to the IKTaskSet.
+
+        Parameters
+        ----------
+        name : str
+            If 'name' is 'Elbow', then two tasks for markers 'LElbow' and
+            'MElbow' will be added.
+        do_apply, weight :
+            See `add_ikmarkertask`.
+            
+
+        """
+        self.add_ikmarkertask('L%s' % name, do_apply, weight)
+        self.add_ikmarkertask('R%s' % name, do_apply, weight)
+
+
+
+
+
+
+
+
 
