@@ -488,7 +488,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pErr = dataman.storage2numpy(pErr_fpath)
     actu = dataman.storage2numpy(actu_fpath)
 
-    fig = pl.figure(figsize=(16, 16))
+    fig = pl.figure(figsize=(20, 16))
     pl.subplot2grid((4, 4), (0, 0))
     pl.title('residual forces')
     for coln in ['FX', 'FY', 'FZ']:
@@ -578,8 +578,8 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.xlabel('time (s)')
     pl.legend(**legend_kwargs)
 
-    pl.subplot2grid((4, 4), (3, 1))
-    pl.title('hips')
+    pl.subplot2grid((4, 4), (3, 3))
+    pl.title('hip reserves')
     labels = ['rot_r',' rot_l', 'add_r',' add_l']
     for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
         'hip_adduction_r', 'hip_adduction_l']):

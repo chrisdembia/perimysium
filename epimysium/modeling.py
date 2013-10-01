@@ -32,6 +32,41 @@
 
 import org.opensim.modeling as osm
 
+def control_set_from_storage_files(sto_list):
+    """
+    Parameters
+    ----------
+    sto_list: list of org.opensim.modeling.Storage's
+        Each column is written to a single ControlSet, as ControlLinear's.
+
+    Returns
+    -------
+    cset : org.opensim.modeling.ControlSet
+
+    """
+    # TODO documentation.
+    cset = osm.ControlSet()
+    for sto in sto_list:
+        this_cset = osm.ControlSet(sto)
+        for i_control in range(this_cset.getSize()):
+            this_clin = osm.ControlLinear.safeDownCast(this_cset.get(i_control))
+            this_clin.setName(this_clin.getName() + ".excitation")
+            this_clin.setExtrapolate(False)
+            # Undo the default that makes sense for muscles.
+            this_clin.setDefaultParameterMin(-10000.0)
+            this_clin.setDefaultParameterMax(10000.0)
+
+            for i_param in range(this_clin.getNumParameters()):
+                this_clin.setControlValueMin(
+                        this_clin.getParameterTime(i_param),
+                        this_clin.getParameterValue(i_param))
+                this_clin.setControlValueMax(
+                        this_clin.getParameterTime(i_param),
+                        this_clin.getParameterValue(i_param))
+            cset.cloneAndAppend(this_clin)
+    return cset
+
+
 def storage2piecewise_linear_function(sto, column_name, scale_factor=None):
     """Returns a column from a storage file as an
     org.opensim.modeling.PiecewiseLinearFunction. We advise that, once you get
