@@ -2317,7 +2317,7 @@ class GaitScrutinyReport:
                     '%s_!' % name, 'degrees', **kwargs)
     
         plot_kin(0, 'hip_flexion', title='hip', label='hip flexion')
-        plot_kin(1, 'knee_angle', negate=True, label='ankle flexion',
+        plot_kin(1, 'knee_angle', negate=True, label='knee flexion',
                 title='knee')
         plot_kin(2, 'ankle_angle', label='ankle dorsiflexion', title='ankle')
         pl.xlabel('percent gait cycle')
