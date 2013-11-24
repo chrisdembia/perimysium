@@ -390,7 +390,11 @@ def plot_rra_gait_info(rra_results_dir):
         elif fname.endswith('Actuation_force.sto'):
             actu_fpath = os.path.join(rra_results_dir, fname)
 
-    legend_kwargs = {'loc': 'best', 'prop': {'size': 12}}
+    def plot_thresholds(data):
+        pl.plot([data['time'][0], data['time'][-1]], [1, 1], c=[0.7, 0.7, 0.7])
+        pl.plot([data['time'][0], data['time'][-1]], [-1, -1], c=[0.7, 0.7, 0.7])
+
+    legend_kwargs = {'loc': 'best', 'prop': {'size': 12}, 'frameon': False}
 
     pErr = dataman.storage2numpy(pErr_fpath)
     actu = dataman.storage2numpy(actu_fpath)
@@ -403,6 +407,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylabel('force (N)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
+    pl.xlim(xmin=actu['time'][0])
 
     pl.subplot(422)
     pl.title('residual moments')
@@ -411,14 +416,18 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylabel('torque (N-m)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
+    pl.xlim(xmin=actu['time'][0])
 
     pl.subplot(423)
     m2cm = 100
     pl.title('pelvis translation')
     for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
         pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
+    pl.xlim(xmin=pErr['time'][0])
+    pl.ylim((-2, 2))
     pl.ylabel('translation error (cm)')
     pl.legend(**legend_kwargs)
+    plot_thresholds(pErr)
 
     pl.subplot(424)
     rad2deg = np.rad2deg(1.0)
@@ -426,21 +435,30 @@ def plot_rra_gait_info(rra_results_dir):
     for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     pl.ylabel('rotation error (deg)')
+    pl.xlim(xmin=pErr['time'][0])
+    pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    plot_thresholds(pErr)
 
     pl.subplot(425)
     pl.title('left lower limb')
     for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
     pl.ylabel('rotation error (deg)')
+    pl.xlim(xmin=pErr['time'][0])
+    pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    plot_thresholds(pErr)
 
     pl.subplot(426)
     pl.title('right lower limb')
     for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
     pl.ylabel('rotation error (deg)')
+    pl.xlim(xmin=pErr['time'][0])
+    pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    plot_thresholds(pErr)
 
     pl.subplot(427)
     pl.title('lumbar rotations')
@@ -448,7 +466,10 @@ def plot_rra_gait_info(rra_results_dir):
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     pl.ylabel('rotation error (deg)')
     pl.xlabel('time (s)')
+    pl.xlim(xmin=pErr['time'][0])
+    pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    plot_thresholds(pErr)
 
     pl.subplot(428)
     pl.title('hips')
@@ -458,7 +479,10 @@ def plot_rra_gait_info(rra_results_dir):
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
     pl.ylabel('rotation error (deg)')
     pl.xlabel('time (s)')
+    pl.xlim(xmin=pErr['time'][0])
+    pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    plot_thresholds(pErr)
 
     return fig
 
