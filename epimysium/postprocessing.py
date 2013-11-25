@@ -390,9 +390,11 @@ def plot_rra_gait_info(rra_results_dir):
         elif fname.endswith('Actuation_force.sto'):
             actu_fpath = os.path.join(rra_results_dir, fname)
 
-    def plot_thresholds(data):
-        pl.plot([data['time'][0], data['time'][-1]], [1, 1], c=[0.7, 0.7, 0.7])
-        pl.plot([data['time'][0], data['time'][-1]], [-1, -1], c=[0.7, 0.7, 0.7])
+    def plot_thresholds(data, val):
+        pl.plot([data['time'][0], data['time'][-1]], [val, val],
+                c=[0.7, 0.7, 0.7])
+        pl.plot([data['time'][0], data['time'][-1]], [-val, -val],
+                c=[0.7, 0.7, 0.7])
 
     legend_kwargs = {'loc': 'best', 'prop': {'size': 12}, 'frameon': False}
 
@@ -408,6 +410,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0])
+    plot_thresholds(actu, 10)
 
     pl.subplot(422)
     pl.title('residual moments')
@@ -417,6 +420,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0])
+    plot_thresholds(actu, 30)
 
     pl.subplot(423)
     m2cm = 100
@@ -427,7 +431,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylim((-2, 2))
     pl.ylabel('translation error (cm)')
     pl.legend(**legend_kwargs)
-    plot_thresholds(pErr)
+    plot_thresholds(pErr, 1)
 
     pl.subplot(424)
     rad2deg = np.rad2deg(1.0)
@@ -438,7 +442,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
-    plot_thresholds(pErr)
+    plot_thresholds(pErr, 1)
 
     pl.subplot(425)
     pl.title('left lower limb')
@@ -448,7 +452,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
-    plot_thresholds(pErr)
+    plot_thresholds(pErr, 1)
 
     pl.subplot(426)
     pl.title('right lower limb')
@@ -458,7 +462,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
-    plot_thresholds(pErr)
+    plot_thresholds(pErr, 1)
 
     pl.subplot(427)
     pl.title('lumbar rotations')
@@ -469,7 +473,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
-    plot_thresholds(pErr)
+    plot_thresholds(pErr, 1)
 
     pl.subplot(428)
     pl.title('hips')
@@ -482,7 +486,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
-    plot_thresholds(pErr)
+    plot_thresholds(pErr, 1)
 
     return fig
 
