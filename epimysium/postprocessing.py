@@ -409,7 +409,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylabel('force (N)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
-    pl.xlim(xmin=actu['time'][0])
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     plot_thresholds(actu, 10)
 
     pl.subplot(422)
@@ -419,7 +419,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylabel('torque (N-m)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
-    pl.xlim(xmin=actu['time'][0])
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     plot_thresholds(actu, 30)
 
     pl.subplot(423)
@@ -427,7 +427,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.title('pelvis translation')
     for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
         pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
-    pl.xlim(xmin=pErr['time'][0])
+    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.ylabel('translation error (cm)')
     pl.legend(**legend_kwargs)
@@ -439,7 +439,7 @@ def plot_rra_gait_info(rra_results_dir):
     for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     pl.ylabel('rotation error (deg)')
-    pl.xlim(xmin=pErr['time'][0])
+    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
     plot_thresholds(pErr, 1)
@@ -449,7 +449,7 @@ def plot_rra_gait_info(rra_results_dir):
     for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
     pl.ylabel('rotation error (deg)')
-    pl.xlim(xmin=pErr['time'][0])
+    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
     plot_thresholds(pErr, 1)
@@ -459,7 +459,7 @@ def plot_rra_gait_info(rra_results_dir):
     for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
     pl.ylabel('rotation error (deg)')
-    pl.xlim(xmin=pErr['time'][0])
+    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
     plot_thresholds(pErr, 1)
@@ -470,7 +470,7 @@ def plot_rra_gait_info(rra_results_dir):
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     pl.ylabel('rotation error (deg)')
     pl.xlabel('time (s)')
-    pl.xlim(xmin=pErr['time'][0])
+    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
     plot_thresholds(pErr, 1)
@@ -483,7 +483,7 @@ def plot_rra_gait_info(rra_results_dir):
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
     pl.ylabel('rotation error (deg)')
     pl.xlabel('time (s)')
-    pl.xlim(xmin=pErr['time'][0])
+    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
     plot_thresholds(pErr, 1)
