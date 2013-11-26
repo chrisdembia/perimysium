@@ -411,6 +411,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     plot_thresholds(actu, 10)
+    plot_thresholds(actu, 25)
 
     pl.subplot(422)
     pl.title('residual moments')
@@ -532,6 +533,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     plot_thresholds(actu, 10)
+    plot_thresholds(actu, 25)
 
     pl.subplot2grid((3, 4), (0, 3))
     pl.title('residual moments')
