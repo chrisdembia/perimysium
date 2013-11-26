@@ -84,6 +84,7 @@ def select_rra_task_weights(setup_fpath,
         task_name_regex_omit=None,
         min_max_err=0.0,
         max_max_err=2.0,
+        max_weight=2000.0,
         rra_executable='rra',
         suppress_rra_stdout=True,
         ):
@@ -124,6 +125,9 @@ def select_rra_task_weights(setup_fpath,
     max_max_err : float, optional
         Each kinematics error/task (e.g., ankle_angle_r) has a maximum value in
         time. What is the maximum value that this maximum can have?
+    max_weight : float, optional
+        Maximum allowable weight. Will not allow a weight to be set above this
+        value.
     rra_executable : str, optional
         Valid path to an RRA executable. This is useful if:
         * OpenSim is installed in a nonstandard location,
@@ -186,6 +190,8 @@ def select_rra_task_weights(setup_fpath,
     maxerr, max_colname = max_error(pErr, task_names)
     minerr, min_colname = min_error(pErr, task_names)
     iter_count = 0
+    maxerr_last = np.nan
+    minerr_last = np.nan
     while maxerr > max_max_err or minerr < min_max_err:
 
         iter_count += 1
@@ -195,6 +201,8 @@ def select_rra_task_weights(setup_fpath,
         print(len(itr_str) * '=')
 
         # Choose new task weights to get the error where we want it.
+        violation_count = 0
+        hit_max_weight_count = 0
         for colname in pErr.dtype.names:
             if colname in task_names:
                 if colname.startswith('pelvis_t'):
@@ -203,6 +211,7 @@ def select_rra_task_weights(setup_fpath,
                     this_err = np.rad2deg(np.max(np.abs(pErr[colname])))
 
                 if this_err > max_max_err or this_err < min_max_err:
+                    violation_count += 1
                     if this_err > max_max_err:
                         increment = this_err - avg_max_err
                     elif this_err < min_max_err:
@@ -213,11 +222,22 @@ def select_rra_task_weights(setup_fpath,
                     # Compute new weights.
                     prev_weight = task_weights[task_names.index(colname)]
                     new_weight = prev_weight + 0.5 * increment * prev_weight
+                    if new_weight > max_weight:
+                        new_weight = max_weight
+                        hit_max_weight_count += 1
                     task_weights[task_names.index(colname)] = new_weight
 
                     # Update the user.
                     print('Task %s has max error %.2f: %.2f -> %.2f' % (
                         colname, this_err, prev_weight, new_weight))
+
+        # It's possible we can't do any better, given the bound on weights.
+        # If every task that has an error outside of the desired range also has
+        # hit the maximum possible weight, then we can't do anything.
+        if violation_count == hit_max_weight_count
+            print('Errors have not changed since the last iteration. '
+                    'Aborting.')
+            return;
 
         # Run RRA with the new weights.
         write_task_weights_to_file(task_weights, tasks_fpath, task_names)
@@ -233,6 +253,8 @@ def select_rra_task_weights(setup_fpath,
         # do so for safety, in case an inconsistency arises somehow.
         task_weights = task_weights_from_file(tasks_fpath, task_names)
         pErr = dataman.storage2numpy(pErr_fpath)
+        maxerr_last = maxerr
+        minerr_last = minerr
         maxerr, max_colname = max_error(pErr, task_names)
         minerr, min_colname = min_error(pErr, task_names)
 
