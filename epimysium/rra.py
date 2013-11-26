@@ -1,6 +1,7 @@
 """Iteratively run RRA until the kinematics errors are within a desired range.
 
 """
+import copy
 import os
 import re
 import sys
@@ -43,6 +44,7 @@ def task_weights_from_file(fpath, task_names):
     return array_weights
 
 def all_task_names(tasks_fpath):
+    cmcts = etree.parse(tasks_fpath, parser=xml_parser)
     task_names = []
     for task in cmcts.findall('.//CMC_Joint'):
         task_names.append(task.attrib['name'])
@@ -139,7 +141,7 @@ def select_rra_task_weights(setup_fpath,
     # The tasks file.
     # Leading/trailing whitespace could yield an incorrect path.
     task_setup_path = rra.findall('.//task_set_file')[0].text.strip()
-    if not os.path.isabs(task_setup_path):
+    if os.path.isabs(task_setup_path):
         tasks_fpath = task_setup_path
     else:
         tasks_fpath = os.path.join(setup_dir, task_setup_path)
@@ -149,7 +151,7 @@ def select_rra_task_weights(setup_fpath,
 
     # Remove task names via regular expression.
     if task_name_regex_omit:
-        orig_task_names = task_names
+        orig_task_names = copy.copy(task_names)
         for taskn in orig_task_names:
             if re.match(task_name_regex_omit, taskn):
                 task_names.remove(taskn)
