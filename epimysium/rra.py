@@ -82,8 +82,8 @@ def min_error(pErr, task_names):
 def select_rra_task_weights(setup_fpath,
         task_names=None,
         task_name_regex_omit=None,
-        min_max_err=0.5,
-        max_max_err=1.5,
+        min_max_err=0.0,
+        max_max_err=2.0,
         rra_executable='rra',
         suppress_rra_stdout=True,
         ):
@@ -158,9 +158,10 @@ def select_rra_task_weights(setup_fpath,
 
     # The pErr RRA output.
     resdir_name = rra.findall('.//results_directory')[0].text.strip()
+    resdir = os.path.join(setup_dir, 'results')
     rratool_name = rra.findall('.//RRATool')[0].attrib['name']
     pErr_fname = rratool_name + '_pErr.sto'
-    pErr_fpath = os.path.join(setup_dir, 'results', pErr_fname)
+    pErr_fpath = os.path.join(resdir, pErr_fname)
 
     # For the figure we'll be making.
     fig_fpath = os.path.join(setup_dir,
@@ -224,13 +225,13 @@ def select_rra_task_weights(setup_fpath,
         subprocess.call(rra_command, stdout=our_stdout)
 
         # Update plot.
-        fig = pproc.plot_rra_gait_info('results')
+        fig = pproc.plot_rra_gait_info(resdir)
         fig.savefig(fig_fpath)
 
         # Update error.
         # We don't REALLY need to update the task weights from the file, but we
         # do so for safety, in case an inconsistency arises somehow.
-        task_weights = task_weights_from_file(tasks_fpath)
+        task_weights = task_weights_from_file(tasks_fpath, task_names)
         pErr = dataman.storage2numpy(pErr_fpath)
         maxerr, max_colname = max_error(pErr, task_names)
         minerr, min_colname = min_error(pErr, task_names)
