@@ -2,6 +2,7 @@
 
 """
 import os
+import re
 import sys
 import subprocess
 
@@ -16,7 +17,8 @@ from epimysium import postprocessing as pproc
 # So the tasks.xml we save retains comments.
 xml_parser = etree.XMLParser(remove_comments=False)
 
-def write_task_weights_to_file(task_weights, do_round=False):
+def write_task_weights_to_file(task_weights, tasks_fpath, task_names,
+        do_round=False):
     cmcts = etree.parse(tasks_fpath, parser=xml_parser)
     # Ignore defaults; only look at 'objects'.
     if do_round: format_str = '%i'
@@ -28,7 +30,7 @@ def write_task_weights_to_file(task_weights, do_round=False):
             task.find('weight').text = format_str % task_weights[itask]
     cmcts.write(tasks_fpath)
 
-def task_weights_from_file(fpath):
+def task_weights_from_file(fpath, task_names):
     array_weights = np.empty(len(task_names))
     file_weights = dict()
     cmcts = etree.parse(fpath)
@@ -40,7 +42,13 @@ def task_weights_from_file(fpath):
         array_weights[itask] = file_weights[name]
     return array_weights
 
-def max_error(pErr):
+def all_task_names(tasks_fpath):
+    task_names = []
+    for task in cmcts.findall('.//CMC_Joint'):
+        task_names.append(task.attrib['name'])
+    return task_names
+
+def max_error(pErr, task_names):
     # Maximum error across the tasks we care about.
     maxerr = -np.inf
     for colname in pErr.dtype.names:
@@ -54,7 +62,7 @@ def max_error(pErr):
                 maxerr = this_max_err
     return maxerr, max_colname
 
-def min_error(pErr):
+def min_error(pErr, task_names):
     # Maximum error across the tasks we care about.
     minerr = np.inf
     for colname in pErr.dtype.names:
@@ -69,10 +77,12 @@ def min_error(pErr):
     return minerr, min_colname
 
 
-class select_rra_task_weights(setup_fpath,
+def select_rra_task_weights(setup_fpath,
+        task_names=None,
+        task_name_regex_omit=None,
         min_max_err=0.5,
         max_max_err=1.5,
-        rra_exec='rra',
+        rra_executable='rra',
         suppress_rra_stdout=True,
         ):
     """Alters all RRA task weights simultaneously to bring kinematics errors
@@ -94,18 +104,25 @@ class select_rra_task_weights(setup_fpath,
         Valid path to an RRA setup file. We'll pull from this your task set,
         which should contain initial values for the task weights, as well as
         the location of the output pErr file.
-    task_names : list of str's
+    task_names : list of str's, None
         A list of the names of the tasks for whicih we alter the weights
         of/change the error. It is likely that you want us to focus on only a
         few of the tasks here, and you want to take care of the other ones
         manually.
+        If None, all tasks modified.
+    task_name_regex_omit : str, optional
+        Regular expression used to omit tasks from list of task names. If set
+        to 'arm*|elbow*', both arm_flex_r and elbow_flex_r will be ignored.
+        Omission takes precedence over specification in `task_names`. That is,
+        we obtain `task_names`, then go through and omit all those that match
+        this regular expression.
     min_max_err : float, optional
         Each kinematics error/task (e.g., ankle_angle_r) has a maximum value in
         time. What is the minimum value that this maximum can have?
     max_max_err : float, optional
         Each kinematics error/task (e.g., ankle_angle_r) has a maximum value in
         time. What is the maximum value that this maximum can have?
-    rra_exec : str, optional
+    rra_executable : str, optional
         Valid path to an RRA executable. This is useful if:
         * OpenSim is installed in a nonstandard location,
         * rra is not on the system path, or
@@ -116,20 +133,30 @@ class select_rra_task_weights(setup_fpath,
 
     """
     # Get necessary file paths.
-    cmcts = etree.parse(tasks_fpath, parser=xml_parser)
+    rra = etree.parse(setup_fpath, parser=xml_parser)
     setup_dir = os.path.dirname(setup_fpath)
 
     # The tasks file.
     # Leading/trailing whitespace could yield an incorrect path.
-    task_setup_path = cmcts.findall('.//task_set_file')[0].text.strip()
+    task_setup_path = rra.findall('.//task_set_file')[0].text.strip()
     if not os.path.isabs(task_setup_path):
         tasks_fpath = task_setup_path
     else:
         tasks_fpath = os.path.join(setup_dir, task_setup_path)
 
+    if task_names == None:
+        task_names = all_task_names(tasks_fpath)
+
+    # Remove task names via regular expression.
+    if task_name_regex_omit:
+        orig_task_names = task_names
+        for taskn in orig_task_names:
+            if re.match(task_name_regex_omit, taskn):
+                task_names.remove(taskn)
+
     # The pErr RRA output.
-    resdir_name = cmcts.findall('.//results_directory')[0].text.strip()
-    rratool_name = cmcts.findall('.//RRATool')[0].attrib['name']
+    resdir_name = rra.findall('.//results_directory')[0].text.strip()
+    rratool_name = rra.findall('.//RRATool')[0].attrib['name']
     pErr_fname = rratool_name + '_pErr.sto'
     pErr_fpath = os.path.join(setup_dir, 'results', pErr_fname)
 
@@ -145,16 +172,16 @@ class select_rra_task_weights(setup_fpath,
     else:
         our_stdout = sys.stdout
 
-    rra_command = [rra_exec, '-S', setup_fpath]
+    rra_command = [rra_executable, '-S', setup_fpath]
 
-    task_weights = task_weights_from_file(tasks_fpath)
+    task_weights = task_weights_from_file(tasks_fpath, task_names)
 
     if not os.path.exists(pErr_fpath):
         print('Running RRA...')
         subprocess.call(rra_command, stdout=our_stdout)
     pErr = dataman.storage2numpy(pErr_fpath)
-    maxerr, max_colname = max_error(pErr)
-    minerr, min_colname = min_error(pErr)
+    maxerr, max_colname = max_error(pErr, task_names)
+    minerr, min_colname = min_error(pErr, task_names)
     iter_count = 0
     while maxerr > max_max_err or minerr < min_max_err:
 
@@ -186,11 +213,11 @@ class select_rra_task_weights(setup_fpath,
                     task_weights[task_names.index(colname)] = new_weight
 
                     # Update the user.
-                    print('Task %s has max error %.2f: %i -> %i' % (
+                    print('Task %s has max error %.2f: %.2f -> %.2f' % (
                         colname, this_err, prev_weight, new_weight))
 
         # Run RRA with the new weights.
-        write_task_weights_to_file(task_weights)
+        write_task_weights_to_file(task_weights, tasks_fpath, task_names)
         print('Running RRA...')
         subprocess.call(rra_command, stdout=our_stdout)
 
@@ -203,8 +230,8 @@ class select_rra_task_weights(setup_fpath,
         # do so for safety, in case an inconsistency arises somehow.
         task_weights = task_weights_from_file(tasks_fpath)
         pErr = dataman.storage2numpy(pErr_fpath)
-        maxerr, max_colname = max_error(pErr)
-        minerr, min_colname = min_error(pErr)
+        maxerr, max_colname = max_error(pErr, task_names)
+        minerr, min_colname = min_error(pErr, task_names)
 
     print("All maximum pErr's are within the desired range now!")
 
@@ -252,7 +279,7 @@ def alter_weights_to_bring_kinematics_error_below_threshold():
         task_weights[task_names.index(colname)] = new_weight
 
         # Update the user.
-        print('Focusing on %s (%s): %i -> %i' % (
+        print('Focusing on %s (%s): %.2f -> %.2f' % (
             colname, errstr, prev_weight, new_weight))
 
         # Run RRA with the new weights.
@@ -262,7 +289,7 @@ def alter_weights_to_bring_kinematics_error_below_threshold():
 
         # Update plot.
         fig = pproc.plot_rra_gait_info('results')
-        fig.savefig('residual_and_kinematics_error_auto_rra.pdf') 
+        fig.savefig('residual_and_kinematics_error_auto_rra.pdf')
 
         # Update error.
         pErr = dataman.storage2numpy(pErr_fpath)
