@@ -237,92 +237,32 @@ def select_rra_task_weights(setup_fpath,
 
 
 
-
-
-
-
-
-
-# Older code:
-def alter_weights_to_bring_kinematics_error_below_threshold():
-    task_weights = task_weights_from_file(tasks_fpath)
-
-    # To suppress output in a cross-platform way.
-    fnull = open(os.devnull, 'w')
-
-    rra_command = [
-            '%s/bin/rra' % os.environ['OPENSIM_SPRINGACTIVE'],
-            '-S',
-            'setup.xml'
-            ]
-
-    pErr = dataman.storage2numpy(pErr_fpath)
-    maxerr, max_colname = max_error(pErr)
-    minerr, min_colname = min_error(pErr)
-    while maxerr > 2.0 or minerr < 1.0:
-
-        # Determine the direction (and how much) in which to move the weights.
-        if maxerr > 2.0:
-            increment = maxerr - 1.5
-            colname = max_colname
-            errstr = 'max; pErr = %.2f' % maxerr
-        elif minerr < 1.0:
-            increment = -np.abs(1.5 - minerr)
-            colname = min_colname
-            errstr = 'min; pErr = %.2f' % minerr
-        else:
-            raise Exception("minerr and maxerr have unexpected values.")
-
-        # Compute new weights.
-        prev_weight = task_weights[task_names.index(colname)]
-        new_weight = prev_weight + 0.5 * increment * prev_weight
-        task_weights[task_names.index(colname)] = new_weight
-
-        # Update the user.
-        print('Focusing on %s (%s): %.2f -> %.2f' % (
-            colname, errstr, prev_weight, new_weight))
-
-        # Run RRA with the new weights.
-        write_task_weights_to_file(task_weights, do_round=True)
-        # Suppress the RRA output.
-        subprocess.call(rra_command, stdout=fnull)
-
-        # Update plot.
-        fig = pproc.plot_rra_gait_info('results')
-        fig.savefig('residual_and_kinematics_error_auto_rra.pdf')
-
-        # Update error.
-        pErr = dataman.storage2numpy(pErr_fpath)
-        maxerr, max_colname = max_error(pErr)
-        minerr, min_colname = min_error(pErr)
-
-
 # The code below poses this as a more generic optimization problem. I found
 # more success with the methods below. However, I did NOT thoroughly explore
 # this optimization.
-def objective_function(task_weights):
-    print task_weights
-    if any(np.isnan(task_weights)):
-        raise Exception("Some weights are nan.")
-    # Update the tasks file with the new values for the weights.
-    write_task_weights_to_file(task_weights)
-
-    # Run RRA.
-    os.system('%s/bin/rra -S setup.xml' % os.environ['OPENSIM_SPRINGACTIVE'])
-
-    # Update plot.
-    fig = pproc.plot_rra_gait_info('results')
-    fig.savefig('residual_and_kinematics_error_auto_rra.pdf') 
-
-    # Read in RRA output.
-    pErr = dataman.storage2numpy(pErr_fpath)
-
-    # Only want to minimize our excess over 2.0.
-    return min(max_error(pErr)[0] - 2.0, 0.0)
-    # Alternative objective to keep max error a 2.0:
-    # return (max_error(pErr)[0] - 2.0)**2
-
-
+#def objective_function(task_weights):
+#    print task_weights
+#    if any(np.isnan(task_weights)):
+#        raise Exception("Some weights are nan.")
+#    # Update the tasks file with the new values for the weights.
+#    write_task_weights_to_file(task_weights)
+#
+#    # Run RRA.
+#    os.system('%s/bin/rra -S setup.xml' % os.environ['OPENSIM_SPRINGACTIVE'])
+#
+#    # Update plot.
+#    fig = pproc.plot_rra_gait_info('results')
+#    fig.savefig('residual_and_kinematics_error_auto_rra.pdf') 
+#
+#    # Read in RRA output.
+#    pErr = dataman.storage2numpy(pErr_fpath)
+#
+#    # Only want to minimize our excess over 2.0.
+#    return min(max_error(pErr)[0] - 2.0, 0.0)
+#    # Alternative objective to keep max error a 2.0:
+#    # return (max_error(pErr)[0] - 2.0)**2
+#
+#
 ## Prepare arguments.
 #init_weights = task_weights_from_file(tasks_fpath)
 ## Constraints: weights are positive.
