@@ -1,11 +1,14 @@
+"""Forward-integration of an OpenSim model, using integrators in SciPy.
+
+"""
+
 import numpy as np
 from scipy.integrate import ode
 
 class Simulation(ode):
     def __init__(self, opensim_model, controller_func=None):
-        """
-        Initializes all states to zero. The initial states can be changed via
-        `set_initial_value`.
+        """ Initializes all states to zero. The initial states can be changed
+        via `set_initial_value`.
 
         """
         super(Simulation, self).__init__(self.f)
