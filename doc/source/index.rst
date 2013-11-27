@@ -15,6 +15,7 @@ Contents:
    postprocessing.rst
    modeling.rst
    experiment.rst
+   rra.rst
 
 
 Indices and tables
