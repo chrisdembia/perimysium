@@ -234,7 +234,7 @@ def select_rra_task_weights(setup_fpath,
         # It's possible we can't do any better, given the bound on weights.
         # If every task that has an error outside of the desired range also has
         # hit the maximum possible weight, then we can't do anything.
-        if violation_count == hit_max_weight_count
+        if violation_count == hit_max_weight_count:
             print('Errors have not changed since the last iteration. '
                     'Aborting.')
             return;
