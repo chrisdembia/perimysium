@@ -1705,11 +1705,19 @@ def gait_landmarks_from_grf(mot_file,
                 pl.plot(off * ones, ax.get_ylim(), 'b', **kwargs)
                 pl.text(off, .03 * ax.get_ylim()[1], ' %.3f' % off)
 
+        # We'll place the legend on the plot with less strikes.
+        n_left = len(left_toe_offs) + len(left_foot_strikes)
+        n_right = len(right_toe_offs) + len(right_foot_strikes)
 
         myplot(1, 'left foot', left_grfy, left_foot_strikes, left_toe_offs)
-        pl.legend(loc='best')
+
+        if n_left <= n_right:
+            pl.legend(loc='best')
 
         myplot(2, 'right foot', right_grfy, right_foot_strikes, right_toe_offs)
+
+        if n_left > n_right:
+            pl.legend(loc='best')
 
         pl.xlabel('time (s)')
 
