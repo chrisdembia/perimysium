@@ -402,7 +402,7 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
     # TODO     If a group already exists, delete it and rewrite it with the
     # TODO     newly-found data.  Otherwise, the group is skipped.
     # Open the pyTables file.
-    h5file = tables.openFile(h5fname, mode='a')
+    h5file = tables.open_file(h5fname, mode='a')
 
     # Report the number of exceptions we get.
     exception_count = 0
@@ -451,8 +451,8 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
     Parameters
     ----------
     h5file : tables.File
-        pyTables File object, opened using tables.openFile(...). Does NOT close
-        the file.
+        pyTables File object, opened using tables.open_file(...). Does NOT
+        close the file.
     output_path : str
         File path in which the OpenSim output is located (e.g. .STO files).
         Only .STO files are loaded, and it is assumed that all .STO files in
@@ -563,7 +563,7 @@ def _blaze_group_trail(h5file, group_path, title=''):
         if not hasattr(current_group, next_group_name):
 
             # Create the group.
-            h5file.createGroup(current_group, next_group_name, title=title)
+            h5file.create_group(current_group, next_group_name, title=title)
 
         # Set this group as the current group.
         current_group = getattr(current_group, next_group_name)
@@ -627,7 +627,7 @@ def _populate_table(h5file, group, table_name, filepath):
                     table_cols[col] = tables.Float32Col()
 
             # Create pyTables table.
-            table = h5file.createTable(group, table_name, table_cols,
+            table = h5file.create_table(group, table_name, table_cols,
                     'Output file {0}'.format(table_name))
 
         # If this is a data row.
