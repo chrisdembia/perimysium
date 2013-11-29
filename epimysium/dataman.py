@@ -13,6 +13,7 @@ import filecmp
 import os
 import shutil
 import sys
+import re
 import xml.etree.ElementTree as etree
 
 try: import tables
@@ -442,11 +443,10 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
 
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
-        title='', ext='.sto', overwrite_if_newer=False):
-    """Docks an OpenSim output, via a table for each STO file, in a pyTable
-    file.
-    It's assumed the tables don't already exist in the last group
-    specified.
+        title='', ext='.sto', overwrite_if_newer=False,
+        remove_shared_name=True, table_name_repl={}, **kwargs):
+    """Docks an OpenSim output, via a table for each STO (see `ext`) file, in a
+    pyTable file.
 
     Parameters
     ----------
@@ -455,17 +455,17 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         close the file.
     output_path : str
         File path in which the OpenSim output is located (e.g. .STO files).
-        Only .STO files are loaded, and it is assumed that all .STO files in
-        this directory are from one run. That is, they have the same prefix,
-        which is the name of the run.
+        Only .STO files are loaded, and it is assumed that all .STO (see `ext`)
+        files in this directory are from one run. That is, they have the same
+        prefix, which is the name of the run.
     group_path : str, or list of str's
         The group tree hierarchy specifying where the output is to be docked in
         the h5file; as a path or as list of each directory's name (e.g.:
         'path/to/file' or ['path', 'to', 'file'])
     allow_one : bool, optional (default: False)
-        Allows the loading of just one STO file. Otherwise, an exception is
-        thrown. It is common that if only one STO file exists, it is a partial
-        states file and means that the simulation did not complete.
+        Allows the loading of just one Storage file. Otherwise, an exception is
+        thrown. It is common that if only one Storage file exists, it is a
+        partial states file and means that the simulation did not complete.
     title : str, optional
         Title, in the pyTables file, for this group.
     ext : str, optional
@@ -478,6 +478,14 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         that the newer tables can be written to the database. This is done on a
         per-table basis. Skip popluation of a table if the table already exists
         AND the data isn't any newer.
+    remove_shared_name : bool, optional
+        When creating names of tables, remove the shared portion of the Storage
+        file names.
+    table_name_repl : dict, optional
+        Key-value pairs of regular expressions and corresponding replacements
+        for table names.
+    **kwargs : optional
+        Passed onto _populate_table. May want to use the kwarg 'replacements'.
 
     Returns
     -------
@@ -503,15 +511,16 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
 
     # If there are no storage files, the user probably gave a bad path.
     if len(storage_files) == 0:
-        raise Exception("No .STO files found in {0}.".format(output_path))
+        raise Exception("No {0} files found in {1}.".format(ext, output_path))
 
     # If there's only one, usually the states file, forget about this output.
     if (not allow_one) and len(storage_files) == 1:
-        raise Exception("Only one .STO file found: {0}.".format(
+        raise Exception("Only one {0} file found: {1}.".format(ext,
             storage_files[0]))
 
     # Get the length of the common prefix of these files.
-    n_shared = _length_of_shared_prefix(storage_files)
+    if remove_shared_name:
+        n_shared = _length_of_shared_prefix(storage_files)
 
     # -- Add tables in the current group.
 
@@ -522,10 +531,13 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         filepath = os.path.join(output_path, f)
 
         # Get name of the table: after the run name and before the file ext.
-        if len(storage_files) == 1:
+        if len(storage_files) == 1 or not remove_shared_name:
             table_name = os.path.splitext(f)[0]
         else:
             table_name = os.path.splitext(f)[0][n_shared:]
+        for find, rep in table_name_repl.items():
+            regex = re.compile(find)
+            table_name = regex.sub(rep, table_name)
 
         # If we are considering overwriting and we SHOULD overwrite (is_newer),
         # then remove the existing group.
@@ -535,16 +547,18 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
                         os.path.getmtime(filepath)):
                     getattr(current_group, table_name)._f_remove(True) 
                     _populate_table(h5file, current_group, table_name,
-                            filepath)
+                            filepath, **kwargs)
                 else:
                     # Table exists and isn't newer; skip writing.
                     pass
             else:
                 # Table doesn't exist; write it!
-                _populate_table(h5file, current_group, table_name, filepath)
+                _populate_table(h5file, current_group, table_name, filepath,
+                        **kwargs)
         else:
             # Try to populate indiscriminantly.
-            _populate_table(h5file, current_group, table_name, filepath)
+            _populate_table(h5file, current_group, table_name, filepath,
+                    **kwargs)
 
         # Update the attribute for when this group was last updated.
         # This must go after _populate_table, because otherwise the table is
@@ -575,7 +589,7 @@ def _blaze_group_trail(h5file, group_path, title=''):
     return current_group
 
 
-def _populate_table(h5file, group, table_name, filepath):
+def _populate_table(h5file, group, table_name, filepath, replacements={}):
     """Populates a pyTables file with a table, using data from CSV file at
     filepath.
 
@@ -589,6 +603,11 @@ def _populate_table(h5file, group, table_name, filepath):
         Name of the table to be added.
     filepath : str
         Path to the data file containing data to put in this table.
+    replacements : dict, optional
+        In Storage file column names, replace each instance of key with the
+        corresponding value. This is useful, for example, in converting the
+        Storage column names 1_ground_force_x to l_ground_force_x. The keys can
+        be regular expressions.
 
     Returns
     -------
@@ -616,6 +635,9 @@ def _populate_table(h5file, group, table_name, filepath):
             # Can't have periods in table column names in pyTables.
             for i in range(len(title_row)):
                 title_row[i] = title_row[i].replace('.', '_')
+                for find, rep in replacements.items():
+                    regex = re.compile(find)
+                    title_row[i] = regex.sub(rep, title_row[i])
 
             take_header = False
 
