@@ -442,7 +442,7 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
 
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
-        title='', overwrite_if_newer=False):
+        title='', ext='.sto', overwrite_if_newer=False):
     """Docks an OpenSim output, via a table for each STO file, in a pyTable
     file.
     It's assumed the tables don't already exist in the last group
