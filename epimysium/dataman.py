@@ -468,6 +468,9 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         states file and means that the simulation did not complete.
     title : str, optional
         Title, in the pyTables file, for this group.
+    ext : str, optional
+        The filename ending of the Storage files. Default is '.sto', but the
+        user may want to use '.mot' also.
     overwrite_if_newer : bool, optional (default: False)
         By default, the tables cannot already exist in the group specified.
         However, if this is set to True, and the output_path's mtime is greater
@@ -496,7 +499,7 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
     # -- Determine which files we want to use to create tables.
 
     # Make a list of all files in this directory ending is 'sto'.
-    storage_files = [f for f in os.listdir(output_path) if f.endswith('.sto')]
+    storage_files = [f for f in os.listdir(output_path) if f.endswith(ext)]
 
     # If there are no storage files, the user probably gave a bad path.
     if len(storage_files) == 0:
