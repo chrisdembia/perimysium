@@ -442,9 +442,10 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
 
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
-        title=''):
+        title='', overwrite_if_newer=False):
     """Docks an OpenSim output, via a table for each STO file, in a pyTable
-    file.  It's assumed the tables don't already exist in the last group
+    file.
+    It's assumed the tables don't already exist in the last group
     specified.
 
     Parameters
@@ -467,6 +468,13 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         states file and means that the simulation did not complete.
     title : str, optional
         Title, in the pyTables file, for this group.
+    overwrite_if_newer : bool, optional (default: False)
+        By default, the tables cannot already exist in the group specified.
+        However, if this is set to True, and the output_path's mtime is greater
+        than the mtime stored in this group, we will first delete the tables so
+        that the newer tables can be written to the database. This is done on a
+        per-table basis. Skip popluation of a table if the table already exists
+        AND the data isn't any newer.
 
     Returns
     -------
@@ -499,7 +507,6 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         raise Exception("Only one .STO file found: {0}.".format(
             storage_files[0]))
 
-
     # Get the length of the common prefix of these files.
     n_shared = _length_of_shared_prefix(storage_files)
 
@@ -517,8 +524,30 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         else:
             table_name = os.path.splitext(f)[0][n_shared:]
 
-        # Create and populate a table with the data from this file.
-        _populate_table(h5file, current_group, table_name, filepath)
+        # If we are considering overwriting and we SHOULD overwrite (is_newer),
+        # then remove the existing group.
+        if overwrite_if_newer:
+            if hasattr(current_group, table_name):
+                if (getattr(current_group, table_name).attrs.mtime <
+                        os.path.getmtime(filepath)):
+                    getattr(current_group, table_name)._f_remove(True) 
+                    _populate_table(h5file, current_group, table_name,
+                            filepath)
+                else:
+                    # Table exists and isn't newer; skip writing.
+                    pass
+            else:
+                # Table doesn't exist; write it!
+                _populate_table(h5file, current_group, table_name, filepath)
+        else:
+            # Try to populate indiscriminantly.
+            _populate_table(h5file, current_group, table_name, filepath)
+
+        # Update the attribute for when this group was last updated.
+        # This must go after _populate_table, because otherwise the table is
+        # not necessarily created yet.
+        getattr(current_group, table_name).attrs.mtime = \
+                os.path.getmtime(filepath)
 
     return current_group
 
