@@ -606,6 +606,124 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
     # Close the pyTables file.
     h5file.close()
 
+def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title=''):
+    """Write the contents of a TRC file to the database.
+
+    Parameters
+    ----------
+    h5file : tables.File
+        pyTables File object, opened using tables.open_file(...). Does NOT
+        close the file.
+    trc_fpath : str
+        Valid path to a TRC file. We load this into memory using
+        `dataman.TRCFile`.
+    table_name : str
+        Name of the table in the database that'll hold this data.
+    group_path : str, or list of str's
+        The group tree hierarchy specifying where the output is to be docked in
+        the h5file; as a path or as list of each directory's name (e.g.:
+        'path/to/file' or ['path', 'to', 'file'])
+    title : str, optional
+        Title, in the pyTables file, for this group.
+
+    Returns
+    -------
+    current_group : tables.Group
+        The pyTables group in which the output has been stored.
+
+    """
+    # If trc_fpath doesn't exist, can't do anything.
+    if not os.path.exists(trc_fpath):
+        raise Exception("TRC file {0:r} doesn't exist.".format(trc_fpath))
+
+    # Convert group_path to list of str's, if necessary.
+    if type(group_path) == str:
+        group_path = _splitall(group_path)
+
+    # -- Make all necessary groups to get to where we're going.
+    current_group = _blaze_group_trail(h5file, group_path, title)
+
+    _populate_table_with_trc(h5file, current_group, table_name, trc_fpath)
+
+    # Update the attribute for when this group was last updated.
+    # This must go after _populate_table, because otherwise the table is
+    # not necessarily created yet.
+    getattr(current_group, table_name).attrs.mtime = \
+            os.path.getmtime(trc_fpath)
+
+    return current_group
+
+def _populate_table_with_trc(h5file, group, table_name, trc_fpath):
+    """Populates a pyTables file with a table, using data from CSV file at
+    filepath.
+
+    Parameters
+    ----------
+    h5file : tables.File
+        The file to which the table is to be added.
+    group : tables.Group
+        The group in the file to which the table is to be added.
+    table_name : str
+        Name of the table to be added.
+    trc_fpath : str
+        Valid path to a TRC file. We load this into memory using
+        `dataman.TRCFile`.
+
+    Returns
+    -------
+    table : tables.Table
+        The table that has just been created.
+
+    """
+    # Open data file.
+    trcf = TRCFile(trc_fpath)
+
+    # Create the table.
+    # -----------------
+    # Save this row for later; we'll need it.
+    orig_col_names = trcf.data.dtype.names
+    col_names = list(trcf.data.dtype.names)
+
+    # Can't have periods in table column names in pyTables.
+    for i in range(len(col_names)):
+        col_names[i] = col_names[i].replace('.', '_')
+
+    # Create pyTables table columns.
+    table_cols = dict()
+    for col in col_names:
+        # Checking if the column is empty. This is a
+        # once-in-a-blue-moon bug fix as a result of inconsistency in
+        # Hamner's files. See CMC results for subject 2, speed 2 m/s,
+        # cycle 1, states_OG.sto file.
+        if col != '':
+            table_cols[col] = tables.Float32Col()
+
+    # TODO TODO
+    if hasattr(group, 'markers'):
+        group.markers._f_remove(True)
+
+    # Create pyTables table.
+    table = h5file.create_table(group, table_name, table_cols,
+            'Output file {0}'.format(trc_fpath))
+
+    # Add data to the table.
+    # ----------------------
+    # TODO could probably do this more efficiently than adding rows one by one.
+    # For each column in the data file in this row.
+    for it in range(trcf.num_frames):
+        for i in range(len(table_cols.keys())):
+
+            # Append the data into the table.
+            table.row[col_names[i]] = trcf.data[orig_col_names[i]][it]
+
+        # Tell pyTables to append this data to the table.
+        table.row.append()
+
+    # Save (?).
+    table.flush()
+
+    # Give access to it.
+    return table
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         title='', ext='.sto', overwrite_if_newer=False,
