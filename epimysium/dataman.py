@@ -606,7 +606,8 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
     # Close the pyTables file.
     h5file.close()
 
-def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title=''):
+def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title='',
+        overwrite_if_newer=False):
     """Write the contents of a TRC file to the database.
 
     Parameters
@@ -625,6 +626,13 @@ def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title=''):
         'path/to/file' or ['path', 'to', 'file'])
     title : str, optional
         Title, in the pyTables file, for this group.
+    overwrite_if_newer : bool, optional (default: False)
+        By default, the tables cannot already exist in the group specified.
+        However, if this is set to True, and the output_path's mtime is greater
+        than the mtime stored in this group, we will first delete the tables so
+        that the newer tables can be written to the database. This is done on a
+        per-table basis. Skip popluation of a table if the table already exists
+        AND the data isn't any newer.
 
     Returns
     -------
@@ -643,7 +651,25 @@ def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title=''):
     # -- Make all necessary groups to get to where we're going.
     current_group = _blaze_group_trail(h5file, group_path, title)
 
-    _populate_table_with_trc(h5file, current_group, table_name, trc_fpath)
+    # If we are considering overwriting and we SHOULD overwrite (is_newer),
+    # then remove the existing group.
+    if overwrite_if_newer:
+        if hasattr(current_group, table_name):
+            if (getattr(current_group, table_name).attrs.mtime <
+                    os.path.getmtime(trc_fpath)):
+                getattr(current_group, table_name)._f_remove(True) 
+                _populate_table_with_trc(h5file, current_group, table_name,
+                        trc_fpath)
+            else:
+                # Table exists and isn't newer; skip writing.
+                pass
+        else:
+            # Table doesn't exist; write it!
+            _populate_table_with_trc(h5file, current_group, table_name,
+                    trc_fpath)
+    else:
+        # Try to populate indiscriminantly.
+        _populate_table_with_trc(h5file, current_group, table_name, trc_fpath)
 
     # Update the attribute for when this group was last updated.
     # This must go after _populate_table, because otherwise the table is
@@ -697,10 +723,6 @@ def _populate_table_with_trc(h5file, group, table_name, trc_fpath):
         # cycle 1, states_OG.sto file.
         if col != '':
             table_cols[col] = tables.Float32Col()
-
-    # TODO TODO
-    if hasattr(group, 'markers'):
-        group.markers._f_remove(True)
 
     # Create pyTables table.
     table = h5file.create_table(group, table_name, table_cols,
