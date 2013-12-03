@@ -381,7 +381,7 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
         - setup
         - model
         - tasks
-        - actuators
+        - actuators (str if 1 file, list of str's if multiple files.
         - control_constraints
         - desired_kinematics
         - external_loads
@@ -390,6 +390,10 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     new_fpaths : dict
         A valid filepath to the all the new files that were just copied over.
         The keys are as above for `old_fpaths`.
+        NOTE/TODO: For backwards compatibility, new_fpaths contains an entry
+        for 'actuators' if there is only one actuators (force set) file listed
+        in the cmc setup file. If there is more than one 'actuators' file, then
+        new_fpaths['actuators'] is a list of the force set files.
 
     """
     if do_not_copy != None:
@@ -468,6 +472,7 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     new_fpaths['model'] = None
     new_fpaths['tasks'] = None
     new_actu_fpaths = list()
+    new_fpaths['actuators'] = None
     new_fpaths['control_constraints'] = None
     new_fpaths['desired_kinematics'] = None
     new_fpaths['external_loads'] = None
@@ -497,7 +502,8 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     def edit_field(xml, tag, key):
         if old[key]:
             if do_not_copy != None and key in do_not_copy:
-                xml.findall('.//%s' % tag)[0].text = os.path.relpath(old[key], destination)
+                xml.findall('.//%s' % tag)[0].text = \
+                        os.path.relpath(old[key], destination)
             else:
                 if key in kwargs:
                     newvalue = kwargs[key]
@@ -513,6 +519,8 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     edit_field(setup, 'desired_kinematics_file', 'desired_kinematics')
     edit_field(setup, 'external_loads_file', 'external_loads')
 
+    # We cannot use edit_field() to edit the force_set_files field, because
+    # it's more complicated. So we have these next bunch of lines to do that.
     new_actu_value = ''
     if do_not_copy != None and 'actuators' in do_not_copy:
         for this_path in old_actu:
@@ -521,6 +529,15 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
         for this_path in new_actu_fpaths:
             new_actu_value += ' %s' % os.path.basename(this_path)
     setup.findall('.//%s' % 'force_set_files')[0].text = new_actu_value
+
+    # Give the user the new actuator file paths.
+    if len(new_actu_fpaths) > 0:
+        if len(new_actu_fpaths) == 1:
+            # Return just that one file path.
+            new_fpaths['actuators'] = new_actu_fpaths[0]
+        else:
+            # Return a list of file paths.
+            new_fpaths['actuators'] = new_actu_fpaths
 
     edit_field(extloads, 'datafile', 'force_plates')
     edit_field(extloads, 'external_loads_model_kinematics_file',
@@ -541,6 +558,12 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
                 os.path.basename(old['external_loads']))
     extloads.write(extloads_new_fpath)
     new_fpaths['external_loads'] = extloads_new_fpath
+
+    # Also, now we can also give the user the list of old actuator paths.
+    if len(old_actu) == 1:
+        old['actuators'] = old_actu[0]
+    else:
+        old['actuators'] = old_actu
 
     return old, new_fpaths
 

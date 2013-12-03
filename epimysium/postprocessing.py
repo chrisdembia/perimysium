@@ -1471,7 +1471,7 @@ def plot_muscle_forces(sim, muscles=None, interval=10, subplot_width=4,
 
 def shift_data_to_cycle(
         arbitrary_cycle_start_time, arbitrary_cycle_end_time,
-        new_cycle_start_time, time, ordinate, cut_off=False):
+        new_cycle_start_time, time, ordinate, cut_off=True):
     """
     Takes data (ordinate) that is (1) a function of time and (2) cyclic, and
     returns data that can be plotted so that the data starts at the desired
@@ -1508,11 +1508,11 @@ def shift_data_to_cycle(
         arbitrary_cycle_end_time.
     ordinate : np.array
         The cyclic function of time, values corresponding to the times given.
-    cut_off : bool, optional (default: False)
-        Sometimes, there's a gap in the data that prevents obtaining a smooth
-        curve if the data wraps around. In order prevent misrepresenting the
-        data in plots, etc., an np.nan is placed in the appropriate place in
-        the data.
+    cut_off : bool, optional
+        Sometimes, there's a discontinuity in the data that prevents obtaining
+        a smooth curve if the data wraps around. In order prevent
+        misrepresenting the data in plots, etc., an np.nan is placed in the
+        appropriate place in the data.
 
     Returns
     -------
@@ -1529,7 +1529,7 @@ def shift_data_to_cycle(
     --------
     Observe that we do not require a constant interval for the time:
 
-        >>> ordinate = np.array([2, 1, 2, 3, 4, 5, 6])
+        >>> ordinate = np.array([2, 1., 2., 3., 4., 5., 6.])
         >>> time = np.array([0.5, 1.0, 1.2, 1.35, 1.4, 1.5, 1.8])
         >>> arbitrary_cycle_start_time = 1.0
         >>> arbitrary_cycle_end_time = 1.5
@@ -1541,15 +1541,21 @@ def shift_data_to_cycle(
         >>> shifted_time
         array([ 0.  ,  0.05,  0.15,  0.3 ,  0.5 ])
         >>> shifted_ordinate
-        array([3, 4, 5, 1, 2])
+        array([3., 4., nan, 1., 2.])
 
     In order to ensure the entire duration of the cycle is kept the same,
     the time interval between the original times "1.5" and "1.0" is 0.1, which
     is the time gap between the original times "1.2" and "1.3"; the time
     between 1.2 and 1.3 is lost, and so we retain it in the place where we
-    introduce a new gap (between "1.5" and "1.0").
+    introduce a new gap (between "1.5" and "1.0"). NOTE that we only ensure the
+    entire duration of the cycle is kept the same IF the available data covers
+    the entire time interval [arbitrary_cycle_start_time,
+    arbitrary_cycle_end_time].
 
     """
+    # TODO gaps in time can only be after or before the time interval of the
+    # available data.
+
     if new_cycle_start_time > arbitrary_cycle_end_time:
         raise Exception('(`new_cycle_start_time` = %f) > (`arbitrary_cycle_end'
                 '_time` = %f), but we require that `new_cycle_start_time <= '
@@ -1561,25 +1567,68 @@ def shift_data_to_cycle(
                 'time >= `arbitrary_cycle_start_time`.' % (new_cycle_start_time,
                     arbitrary_cycle_start_time))
 
+    duration = arbitrary_cycle_end_time - arbitrary_cycle_end_time
+
     old_start_index = nearest_index(time, arbitrary_cycle_start_time)
     old_end_index = nearest_index(time, arbitrary_cycle_end_time)
 
     new_start_index = nearest_index(time, new_cycle_start_time)
 
+    # So that the result matches exactly with the user's desired times.
+    if new_cycle_start_time > time[0] and new_cycle_start_time < time[-1]:
+        time[new_start_index] = new_cycle_start_time
+        ordinate[new_start_index] = np.interp(new_cycle_start_time, time,
+                ordinate)
+
+    if old_start_index != 0:
+        #or (old_start_index == 0 and
+        #    time[old_start_index] > arbitrary_cycle_start_time):
+        # There's data before the arbitrary start.
+        # Then we can interpolate to get what the ordinate SHOULD be exactly at
+        # the arbitrary start.
+        time[old_start_index] = arbitrary_cycle_start_time
+        ordinate[old_start_index] = np.interp(arbitrary_cycle_start_time, time,
+                ordinate)
+        gap_before_avail_data = 0.0
+    else:
+        if not new_cycle_start_time < time[old_start_index]:
+            gap_before_avail_data = (time[old_start_index] -
+                    arbitrary_cycle_start_time)
+        else:
+            gap_before_avail_data = 0.0
+
+    if old_end_index != (len(time) - 1):
+        #or (old_end_index == (len(time) - 1)
+        #and time[old_end_index] < arbitrary_cycle_end_time):
+        time[old_end_index] = arbitrary_cycle_end_time
+        ordinate[old_end_index] = np.interp(arbitrary_cycle_end_time, time,
+                ordinate)
+        gap_after_avail_data = 0
+    else:
+        gap_after_avail_data = arbitrary_cycle_end_time - time[old_end_index]
+
     # Interval of time in
-    # [arbitrary_cycle_start_time, arbitrary_cycle_end_time]that is 'lost' in
+    # [arbitrary_cycle_start_time, arbitrary_cycle_end_time] that is 'lost' in
     # doing the shifting.
-    lost_time_gap = time[new_start_index] - time[new_start_index - 1]
+    if new_cycle_start_time < time[old_start_index]:
+        lost_time_gap = 0.0
+    else:
+        lost_time_gap = time[new_start_index] - time[new_start_index - 1]
 
     # Starts at 0.0.
-    first_portion_of_new_time = \
-            time[new_start_index:old_end_index+1] - new_cycle_start_time
+    if new_cycle_start_time < time[0]:
+        addin = gap_before_avail_data
+    else:
+        addin = 0
+    first_portion_of_new_time = (time[new_start_index:old_end_index+1] -
+            new_cycle_start_time + addin)
 
     # Second portion: (1) shift to 0, then move to the right of first portion.
     second_portion_to_zero = \
             time[old_start_index:new_start_index] - arbitrary_cycle_start_time
     second_portion_of_new_time = (second_portion_to_zero +
-            first_portion_of_new_time[-1] + lost_time_gap)
+            first_portion_of_new_time[-1] + lost_time_gap +
+            gap_after_avail_data)
 
     shifted_time = np.concatenate(
             (first_portion_of_new_time, second_portion_of_new_time))
@@ -2667,7 +2716,6 @@ class GaitScrutinyReport:
         # ------------------
         pp.close()
 
-
 def percent_duration_single(time, start, end):
     """Converts a single time value to a percent duration (e.g., percent gait
     cycle) value. The difference between this method and `percent_duration` is
@@ -2686,13 +2734,17 @@ def percent_duration_single(time, start, end):
     return (time - start) / (end - start) * 100.0
 
 
-def percent_duration(time):
+def percent_duration(time, start=None, end=None):
     """Converts a time array to percent duration (e.g., percent gait cycle).
 
     Parameters
     ----------
     time : np.array
         The time data to convert, with units of time (e.g., seconds).
+    start : float, optional
+        Start time of the duration. If not provided, we use time[0].
+    end : float, optional
+        End time of the duration. If not provided, we use time[-1].
 
     Returns
     -------
@@ -2700,7 +2752,9 @@ def percent_duration(time):
         Varies from 0 to 100.
 
     """
-    return (time - time[0]) / (time[-1] - time[0]) * 100.0
+    if start == None: start = time[0]
+    if end == None: end = time[-1]
+    return (time - start) / (end - start) * 100.0
 
 
 def plot(column, *args, **kwargs):
