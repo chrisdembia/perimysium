@@ -302,7 +302,7 @@ def set_model_state_from_storage(model, storage, time, state=None):
 
     return state
 
-def compute_state_dependent_quantity_in_time(model, states_sto, fcn):
+def compute_state_dependent_quantity_in_time(model, storage, fcn):
     """This basically does the same thing as an OpenSim analysis. Compute the
     result of `fcn` for each time in the states_sto, and return the resulting
     array.
@@ -327,7 +327,7 @@ def compute_state_dependent_quantity_in_time(model, states_sto, fcn):
         All the times in the storage file.
     qty : list of float's
         This is the result of `qty` at all the times in the states Storage. It
-        has the same length as a column in `states_sto`.
+        has the same length as a column in `storage`.
 
     """
     if type(model) == str:
@@ -335,15 +335,14 @@ def compute_state_dependent_quantity_in_time(model, states_sto, fcn):
     if type(storage) == str:
         storage = osm.Storage(storage)
 
-    if state == None:
-        state = model.initState()
+    state = model.initSystem()
 
-    sto_times = ArrayDouble()
+    sto_times = osm.ArrayDouble()
     storage.getTimeColumn(sto_times)
 
     time = sto_times.getSize() * [0]
     for i in range(sto_times.getSize()):
-        time[i] = sto_times.get(i)
+        time[i] = sto_times.getitem(i)
 
     qty = len(time) * [0]
     for i, t in enumerate(time):
