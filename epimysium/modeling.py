@@ -126,29 +126,29 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
     # -------------
     if twitch_ratio_set == 'gait2392':
         twitchRatios = {
-            'glut_med1': 0.55, 'glut_med2': 0.55, 'glut_med3': 0.55, 
-            'glut_min1': 0.55, 'glut_min2': 0.55, 'glut_min3': 0.55, 
-            'semimem': 0.4925, 'semiten': 0.425, 
-            'bifemlh': 0.5425, 'bifemsh': 0.529, 
-            'add_mag1': 0.552, 'add_mag2': 0.552, 'add_mag3': 0.552, 
-            'glut_max1': 0.55, 'glut_max2': 0.55, 'glut_max3': 0.55, 
-            'iliacus': 0.5, 'psoas': 0.5, 'rect_fem': 0.3865, 
-            'vas_med': 0.503, 'vas_int': 0.543, 'vas_lat': 0.455, 
+            'glut_med1': 0.55, 'glut_med2': 0.55, 'glut_med3': 0.55,
+            'glut_min1': 0.55, 'glut_min2': 0.55, 'glut_min3': 0.55,
+            'semimem': 0.4925, 'semiten': 0.425,
+            'bifemlh': 0.5425, 'bifemsh': 0.529,
+            'add_mag1': 0.552, 'add_mag2': 0.552, 'add_mag3': 0.552,
+            'glut_max1': 0.55, 'glut_max2': 0.55, 'glut_max3': 0.55,
+            'iliacus': 0.5, 'psoas': 0.5, 'rect_fem': 0.3865,
+            'vas_med': 0.503, 'vas_int': 0.543, 'vas_lat': 0.455,
             'med_gas': 0.566, 'lat_gas': 0.507, 'soleus': 0.803,
-            'tib_post': 0.6, 'flex_dig': 0.6, 'flex_hal': 0.6, 'tib_ant': 0.7, 
-            'per_brev': 0.6, 'per_long': 0.6, 'per_tert': 0.75, 
-            'ext_dig': 0.75, 'ext_hal': 0.75, 
-            'ercspn': 0.6, 'intobl': 0.56, 'extobl': 0.58, 
-            'sar': -1, 'add_long': -1, 'add_brev': -1, 
+            'tib_post': 0.6, 'flex_dig': 0.6, 'flex_hal': 0.6, 'tib_ant': 0.7,
+            'per_brev': 0.6, 'per_long': 0.6, 'per_tert': 0.75,
+            'ext_dig': 0.75, 'ext_hal': 0.75,
+            'ercspn': 0.6, 'intobl': 0.56, 'extobl': 0.58,
+            'sar': -1, 'add_long': -1, 'add_brev': -1,
             'tfl': -1, 'pect': -1, 'grac': -1,
             'quad_fem': -1, 'gem': -1, 'peri': -1}
     elif twitch_ratio_set == 'gait1018':
         twitchRatios = {
-            'hamstrings': 0.49, 'bifemsh': 0.53, 'glut_max': 0.55, 
-            'iliopsoas': 0.50, 'rect_fem': 0.39, 'vasti': 0.50, 
-            'gastroc': 0.54, 'soleus': 0.80, 
+            'hamstrings': 0.49, 'bifemsh': 0.53, 'glut_max': 0.55,
+            'iliopsoas': 0.50, 'rect_fem': 0.39, 'vasti': 0.50,
+            'gastroc': 0.54, 'soleus': 0.80,
             'tib_ant': 0.70}
-    
+
     # Parameters used for all probes
     # ------------------------------
     # The following booleans are constructor arguments for the Umberger probe.
@@ -157,16 +157,16 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
     shorteningRateOn = True
     basalRateOn = False
     mechanicalWorkRateOn = True
-    
+
     # The mass of each muscle will be calculated using data from the model:
     #   muscleMass = (maxIsometricForce / sigma) * rho * optimalFiberLength
     # where sigma = 0.25e6 is the specific tension of mammalian muscle (in
     # Pascals) and rho = 1059.7 is the density of mammalian muscle (in kg/m^3).
-    
+
     # The slow-twitch ratio used for muscles that either do not appear in the
     # file, or appear but whose proportion of slow-twitch fibers is unknown.
     defaultTwitchRatio = 0.5
-    
+
     # Whole-body probe
     # ----------------
     # Define a whole-body probe that will report the total metabolic energy
@@ -178,25 +178,25 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         mechanicalWorkRateOn)
     wholeBodyProbe.setOperation("value")
     wholeBodyProbe.set_report_total_metabolics_only(False);
-    
+
     # Add the probe to the model and provide a name.
     model.addProbe(wholeBodyProbe)
     wholeBodyProbe.setName("metabolic_power")
-    
+
     # Loop through all muscles, adding parameters for each into the whole-body
     # probe.
     for iMuscle in range(model.getMuscles().getSize()):
         thisMuscle = model.getMuscles().get(iMuscle)
-        
+
         # Get the slow-twitch ratio from the data we read earlier. Start with
         # the default value.
         slowTwitchRatio = defaultTwitchRatio
-        
+
         # Set the slow-twitch ratio to the physiological value, if it is known.
         for key, val in twitchRatios.items():
             if thisMuscle.getName().startswith(key) and val != -1:
                 slowTwitchRatio = val
-        
+
         # Add this muscle to the whole-body probe. The arguments are muscle
         # name, slow-twitch ratio, and muscle mass. Note that the muscle mass
         # is ignored unless we set useProvidedMass to True.
@@ -240,6 +240,118 @@ def strengthen_muscles(model_fpath, new_model_fpath, scale_factor):
     m.print(new_model_fpath)
 
 
+def set_model_state_from_storage(model, storage, time, state=None):
+    """Set the state of the model from a state described in a states Storage
+    (.STO) file, at the specified time in the Storage file. Note that the model
+    is not modified in any way; we just use the model to set the state.
+
+    The storage should have beeng generated with a model that has the same
+    exact states.
+
+    Do NOT rely on state.getTime()!
+
+    Parameters
+    ----------
+    model : str or opensim.Model
+        If str, a valid path to an OpenSim model file (.osim).
+    storage : str or opensim.Storage
+        If str, a valid path to a states Storage file.
+    time : float
+        A time, within the range of the times in the storage file, at which we
+        should extract the state from the storage file.
+    state : simtk.State
+        If you don't want us to call `initSystem()` on the model, then give us
+        a state!
+
+    Returns
+    -------
+    state : simtk.State
+        A state object that represents the state given in `storage` at time
+        `time`.
+
+    """
+    if type(model) == str:
+        model = osm.Model(model)
+    if type(storage) == str:
+        storage = osm.Storage(storage)
+
+    if state == None:
+        state = model.initState()
+
+    n_states = storage.getSize()
+
+    state_names = storage.getColumnLabels()
+
+    # Interpolate the data to obtain the state (placed into sto_state) at the
+    # specified time. Grab all the states (n_states). I'm assuming that these
+    # state values are in the same order as is given by getStateIndex.
+    sto_state = osm.ArrayDouble()
+    sto_state.setSize(n_states)
+    storage.getDataAtTime(time, n_states, sto_state)
+
+    for i in range(state_names.getSize()):
+        # I'm not even assuming that these
+        # state values are returned in the same order given by state_names.
+        if state_names.getitem(i) != 'time':
+            sto_idx = storage.getStateIndex(state_names.getitem(i))
+            model.setStateVariable(state, state_names.getitem(i),
+                    sto_state.getitem(sto_idx))
+
+    # TODO Maybe CAN rely on this.
+    state.setTime(time)
+
+    return state
+
+def compute_state_dependent_quantity_in_time(model, states_sto, fcn):
+    """This basically does the same thing as an OpenSim analysis. Compute the
+    result of `fcn` for each time in the states_sto, and return the resulting
+    array.
+
+    Parameters
+    ----------
+    model : str or opensim.Model
+        If str, a valid path to an OpenSim model file (.osim).
+    storage : str or opensim.Storage
+        If str, a valid path to a states Storage file.
+    fcn : function
+        This function must have a signature like:
+
+            qty = fcn(model, time, state)
+
+        where model is an opensim.Model, time is a float, and state is a
+        simtk.State.
+
+    Returns
+    -------
+    time : list of float's
+        All the times in the storage file.
+    qty : list of float's
+        This is the result of `qty` at all the times in the states Storage. It
+        has the same length as a column in `states_sto`.
+
+    """
+    if type(model) == str:
+        model = osm.Model(model)
+    if type(storage) == str:
+        storage = osm.Storage(storage)
+
+    if state == None:
+        state = model.initState()
+
+    sto_times = ArrayDouble()
+    storage.getTimeColumn(sto_times)
+
+    time = sto_times.getSize() * [0]
+    for i in range(sto_times.getSize()):
+        time[i] = sto_times.get(i)
+
+    qty = len(time) * [0]
+    for i, t in enumerate(time):
+        this_state = set_model_state_from_storage(model, storage, t,
+                state=state)
+        qty[i] = fcn(model, t, state)
+
+    return time, qty
 
 
 class Scale:
@@ -391,7 +503,7 @@ class IKTaskSet:
             'MElbow' will be added.
         do_apply, weight :
             See `add_ikmarkertask`.
-            
+
 
         """
         self.add_ikmarkertask('L%s' % name, do_apply, weight)
