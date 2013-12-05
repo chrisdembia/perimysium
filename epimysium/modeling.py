@@ -248,8 +248,6 @@ def set_model_state_from_storage(model, storage, time, state=None):
     The storage should have beeng generated with a model that has the same
     exact states.
 
-    Do NOT rely on state.getTime()!
-
     Parameters
     ----------
     model : str or opensim.Model
@@ -316,10 +314,10 @@ def compute_state_dependent_quantity_in_time(model, storage, fcn):
     fcn : function
         This function must have a signature like:
 
-            qty = fcn(model, time, state)
+            qty = fcn(model, state)
 
-        where model is an opensim.Model, time is a float, and state is a
-        simtk.State.
+        where model is an opensim.Model, and state is a
+        simtk.State. Note that you can grab the time via state.getTime().
 
     Returns
     -------
@@ -348,7 +346,7 @@ def compute_state_dependent_quantity_in_time(model, storage, fcn):
     for i, t in enumerate(time):
         this_state = set_model_state_from_storage(model, storage, t,
                 state=state)
-        qty[i] = fcn(model, t, state)
+        qty[i] = fcn(model, state)
 
     return time, qty
 

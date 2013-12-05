@@ -25,7 +25,7 @@ def test_compute_state_dependent_quantity_in_time():
     
     m = osm.Model(os.path.join(parentdir, 'double_pendulum.osim'))
     sto = osm.Storage(os.path.join(parentdir, 'double_pendulum_states.sto'))
-    qty = modeling.compute_state_dependent_quantity_in_time(m, sto, fcn)
+    t, qty = modeling.compute_state_dependent_quantity_in_time(m, sto, fcn)
 
 if __name__ == '__main__':
     test_set_model_state_from_storage()
