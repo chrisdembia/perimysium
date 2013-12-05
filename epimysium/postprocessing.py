@@ -5,6 +5,7 @@ results.
 """
 
 import collections
+import copy
 import os
 
 import numpy as np
@@ -1566,6 +1567,10 @@ def shift_data_to_cycle(
                 '_start_time` = %f), but we require that `new_cycle_start_'
                 'time >= `arbitrary_cycle_start_time`.' % (new_cycle_start_time,
                     arbitrary_cycle_start_time))
+
+    # We're going to modify the data.
+    time = copy.deepcopy(time)
+    ordinate = copy.deepcopy(ordinate)
 
     duration = arbitrary_cycle_end_time - arbitrary_cycle_end_time
 
