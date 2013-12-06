@@ -1585,7 +1585,8 @@ def shift_data_to_cycle(
         ordinate[new_start_index] = np.interp(new_cycle_start_time, time,
                 ordinate)
 
-    if old_start_index != 0:
+    data_exists_before_arbitrary_start = old_start_index != 0
+    if data_exists_before_arbitrary_start:
         #or (old_start_index == 0 and
         #    time[old_start_index] > arbitrary_cycle_start_time):
         # There's data before the arbitrary start.
@@ -1601,8 +1602,8 @@ def shift_data_to_cycle(
                     arbitrary_cycle_start_time)
         else:
             gap_before_avail_data = 0.0
-
-    if old_end_index != (len(time) - 1):
+    data_exists_after_arbitrary_end = old_end_index != (len(time) - 1)
+    if data_exists_after_arbitrary_end:
         #or (old_end_index == (len(time) - 1)
         #and time[old_end_index] < arbitrary_cycle_end_time):
         time[old_end_index] = arbitrary_cycle_end_time
@@ -1612,39 +1613,55 @@ def shift_data_to_cycle(
     else:
         gap_after_avail_data = arbitrary_cycle_end_time - time[old_end_index]
 
-    # Interval of time in
-    # [arbitrary_cycle_start_time, arbitrary_cycle_end_time] that is 'lost' in
-    # doing the shifting.
-    if new_cycle_start_time < time[old_start_index]:
-        lost_time_gap = 0.0
+    # If the new cycle time sits outside of the available data, our job is much
+    # easier; just add or subtract a constant from the given time.
+    if new_cycle_start_time > time[-1]:
+        move_forward = (arbitrary_cycle_end_time - new_cycle_start_time) 
+        shift_to_zero = time[old_start_index:] - time[old_start_index]
+        shifted_time = shift_to_zero + move_forward
+        shifted_ordinate = ordinate[old_start_index:]
+    elif new_cycle_start_time < time[0]:
+        move_forward = time[0] - new_cycle_start_time
+        shift_to_zero = time[:old_end_index + 1] - time[old_start_index]
+        shifted_time = shift_to_zero + move_forward
+        shifted_ordinate = ordinate[:old_end_index + 1]
     else:
-        lost_time_gap = time[new_start_index] - time[new_start_index - 1]
+        # We actually must cut up the data and move it around.
 
-    # Starts at 0.0.
-    if new_cycle_start_time < time[0]:
-        addin = gap_before_avail_data
-    else:
-        addin = 0
-    first_portion_of_new_time = (time[new_start_index:old_end_index+1] -
-            new_cycle_start_time + addin)
-
-    # Second portion: (1) shift to 0, then move to the right of first portion.
-    second_portion_to_zero = \
-            time[old_start_index:new_start_index] - arbitrary_cycle_start_time
-    second_portion_of_new_time = (second_portion_to_zero +
-            first_portion_of_new_time[-1] + lost_time_gap +
-            gap_after_avail_data)
-
-    shifted_time = np.concatenate(
-            (first_portion_of_new_time, second_portion_of_new_time))
-
-    # Apply cut-off:
-    if cut_off: ordinate[old_end_index] = np.nan
-
-    # Shift the ordinate.
-    shifted_ordinate = np.concatenate(
-            (ordinate[new_start_index:old_end_index+1],
-                ordinate[old_start_index:new_start_index]))
+        # Interval of time in
+        # [arbitrary_cycle_start_time, arbitrary_cycle_end_time] that is 'lost' in
+        # doing the shifting.
+        if new_cycle_start_time < time[old_start_index]:
+            lost_time_gap = 0.0
+        else:
+            lost_time_gap = time[new_start_index] - time[new_start_index - 1]
+    
+        # Starts at 0.0.
+        if new_cycle_start_time < time[0]:
+            addin = gap_before_avail_data
+        else:
+            addin = 0
+        first_portion_of_new_time = (time[new_start_index:old_end_index+1] -
+                new_cycle_start_time + addin)
+    
+        # Second portion: (1) shift to 0, then move to the right of first portion.
+        second_portion_to_zero = \
+                time[old_start_index:new_start_index] - arbitrary_cycle_start_time
+        second_portion_of_new_time = (second_portion_to_zero +
+                first_portion_of_new_time[-1] + lost_time_gap +
+                gap_after_avail_data)
+    
+        shifted_time = np.concatenate(
+                (first_portion_of_new_time, second_portion_of_new_time))
+    
+        # Apply cut-off:
+        if cut_off:
+            ordinate[old_end_index] = np.nan
+    
+        # Shift the ordinate.
+        shifted_ordinate = np.concatenate(
+                (ordinate[new_start_index:old_end_index+1],
+                    ordinate[old_start_index:new_start_index]))
 
     return shifted_time, shifted_ordinate
 
