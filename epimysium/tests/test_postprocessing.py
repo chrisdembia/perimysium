@@ -93,6 +93,8 @@ def test_shift_data_to_cycle_for_less_than_full_cycle():
             arbitrary_cycle_end_time, 1.0, x1, y1)
     testing.assert_almost_equal(xs1c[-1] + 0.2, duration) 
     testing.assert_almost_equal(xs1c[0], arbitrary_cycle_end_time - 1.0)
+    # Increasing (last time value is the maximum value).
+    assert np.all(np.diff(xs1c) > 0)
     pl.plot(pproc.percent_duration(xs1c, 0, duration), ys1c, label='1c')
 
     pl.legend()
@@ -111,10 +113,8 @@ def test_shift_data_to_cycle_for_less_than_full_cycle():
     pl.ylim(ymin=0, ymax=1.8)
 
     # Case 2a: don't shift.
-    print 'DEBUG2a'
     xs2a, ys2a = pproc.shift_data_to_cycle(arbitrary_cycle_start_time,
             arbitrary_cycle_end_time, arbitrary_cycle_start_time, x2, y2)
-    print xs2a
     pl.plot(xs2a, ys2a)
     testing.assert_equal(xs2a[-1], duration)
     pl.subplot(2, 2, 4)
