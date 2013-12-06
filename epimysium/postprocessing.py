@@ -1616,7 +1616,10 @@ def shift_data_to_cycle(
     # If the new cycle time sits outside of the available data, our job is much
     # easier; just add or subtract a constant from the given time.
     if new_cycle_start_time > time[-1]:
-        move_forward = (arbitrary_cycle_end_time - new_cycle_start_time) 
+        time_at_end = arbitrary_cycle_end_time - new_cycle_start_time
+        missing_time_at_beginning = \
+                max(0, time[0] - arbitrary_cycle_start_time)
+        move_forward = time_at_end + missing_time_at_beginning
         shift_to_zero = time[old_start_index:] - time[old_start_index]
         shifted_time = shift_to_zero + move_forward
         shifted_ordinate = ordinate[old_start_index:]
