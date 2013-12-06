@@ -98,15 +98,45 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
         tags = {'model': 'model_file', 'tasks': 'task_set_file', 'actuators':
                 'force_set_files', 'control_constraints': 'constraints_file'}
 
-        for key in ['model', 'control_constraints', 'tasks', 'actuators']:
+        setup_fields_to_edit = ['model', 'control_constraints', 'tasks']
+
+        if type(cmc_input['actuators']) == str:
+            # There's only one actuators file specified.
+            setup_fields_to_edit += ['actuators']
+        else:
+            # Deal with the fact that there are multiple files specified.
+            # Assume files are not renamed or deleted.
+            newval = ''
+            for i in range(len(orig_fpaths['actuators'])):
+                if filecmp.cmp(orig_fpaths['actuators'][i],
+                        cmc_input['actuators'][i]):
+                    os.remove(cmc_input['actuators'][i])
+                    newval += ' ' + os.path.relpath(orig_fpaths['actuators'][i],
+                            destination)
+                else:
+                    newval += ' ' + cmc_input['actuators'][i]
+            if len(orig_fpaths['actuators']) < len(cmc_input['actuators']):
+                n_added = (len(cmc_input['actuators']) -
+                        len(orig_fpaths['actuators']))
+                for i in range(len(orig_fpaths['actuators']), n_added):
+                    newval += ' ' + cmc_input['actuators'][i]
+            setup.findall('.//%s' % tags['actuators'])[0].text = newval
+            del newval
+
+
+        for key in setup_fields_to_edit:
             if cmc_input[key] != None:
                 if filecmp.cmp(orig_fpaths[key], cmc_input[key]):
-                    # File unchanged.
+                    # File unchanged. Delete the copy we made.
                     os.remove(cmc_input[key])
+                    # Point the setup file to the original input file.
                     newval = os.path.relpath(orig_fpaths[key], destination)
                     if key == 'actuators':
-                        if setup.findall('.//force_set_files')[0].text.strip() != setup_fsf:
-                            # In case other files are already specified.
+                        if (setup.findall('.//force_set_files')[0].text.strip()
+                                != setup_fsf):
+                            # The `fcn` edited this field.
+                            # In case other files are already specified, don't
+                            # overwrite.
                             newval += setup.findall('.//%s' % tags[key])[0].text
                     setup.findall('.//%s' % tags[key])[0].text = newval
                 else:
