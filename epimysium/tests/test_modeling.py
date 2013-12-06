@@ -18,15 +18,15 @@ def test_set_model_state_from_storage():
     sto.getDataAtTime(0.0, sto.getSize(), q1_act)
     assert q1_act.getitem(0) == q1_des
 
-def test_compute_state_dependent_quantity_in_time():
+def test_analysis():
 
     def fcn(model, time, state):
         return state.getTime()
     
     m = osm.Model(os.path.join(parentdir, 'double_pendulum.osim'))
     sto = osm.Storage(os.path.join(parentdir, 'double_pendulum_states.sto'))
-    t, qty = modeling.compute_state_dependent_quantity_in_time(m, sto, fcn)
+    t, qty = modeling.analysis(m, sto, fcn)
 
 if __name__ == '__main__':
     test_set_model_state_from_storage()
-    test_compute_state_dependent_quantity_in_time()
+    test_analysis()
