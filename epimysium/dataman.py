@@ -678,6 +678,9 @@ def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title='',
     # then remove the existing group.
     if overwrite_if_newer:
         if hasattr(current_group, table_name):
+            if not hasattr(getattr(current_group, table_name).attrs, 'mtime'):
+                raise Exception("Table exists, but is not labeled with an "
+                        "mtime. Not overwriting.")
             if (getattr(current_group, table_name).attrs.mtime <
                     os.path.getmtime(trc_fpath)):
                 getattr(current_group, table_name)._f_remove(True) 
