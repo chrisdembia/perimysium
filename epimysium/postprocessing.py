@@ -1567,16 +1567,6 @@ def shift_data_to_cycle(
                 '_start_time` = %f), but we require that `new_cycle_start_'
                 'time >= `arbitrary_cycle_start_time`.' % (new_cycle_start_time,
                     arbitrary_cycle_start_time))
-    if (time[0] > arbitrary_cycle_start_time and
-            time[-1] < arbitrary_cycle_end_time and
-            new_cycle_start_time < time[-1] and
-            new_cycle_start_time > time[0]):
-        raise Exception('Available data [%f, %f] is short on both sides of the'
-                'gait cycle [%f, %f], AND the new cycle start time, %f, is '
-                'within the available data interval. '
-                'We cannot handle this case yet.' % (time[0], time[-1],
-                    arbitrary_cycle_start_time, arbitrary_cycle_end_time,
-                    new_cycle_start_time))
 
 
     # We're going to modify the data.
