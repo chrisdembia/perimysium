@@ -89,8 +89,6 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
     # Give the user a chance to edit these files.
     cmc_input = fcn(cmc_input)
 
-    print cmc_input
-
     # Delete the files that didn't change, and properly update the setup files.
     # -------------------------------------------------------------------------
     # Necessarily need a setup file, and an external_loads file.
