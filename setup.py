@@ -8,6 +8,7 @@ setup(
         description='Client code code for OpenSim.',
         extras_require={'doc': ['sphinx', 'numpydoc']},
         packages=['epimysium'],
+        scripts=['bin/stoplot'],
         url='http://github.com/fitze/epimysium',
         license='LICENSE.txt',
         long_description=open('README.txt').read(),
