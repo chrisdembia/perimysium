@@ -126,7 +126,8 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
 
         for key in setup_fields_to_edit:
             if cmc_input[key] != None:
-                if filecmp.cmp(orig_fpaths[key], cmc_input[key]):
+                if (orig_fpaths[key] and
+                        filecmp.cmp(orig_fpaths[key], cmc_input[key])):
                     # File unchanged. Delete the copy we made.
                     os.remove(cmc_input[key])
                     # Point the setup file to the original input file.
