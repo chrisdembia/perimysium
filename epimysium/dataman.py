@@ -386,9 +386,9 @@ def cmc_input_fpaths(cmc_setup_fpath, replace=None):
     inputs['tasks'] = valid_path_helper(fname, setup, 'task_set_file')
 
     # This is a list of files, not just 1 file.
-    old_actu = list()
+    actu = list()
     for path in setup.findall('.//force_set_files')[0].text.split():
-        old_actu.append(valid_path(path, fname))
+        actu.append(valid_path(path, fname))
     
     inputs['control_constraints'] = valid_path_helper(fname, setup,
             'constraints_file')
@@ -404,6 +404,11 @@ def cmc_input_fpaths(cmc_setup_fpath, replace=None):
             extloads, 'datafile')
     inputs['extload_kinematics'] = valid_path_helper(inputs['external_loads'],
             extloads, 'external_loads_model_kinematics_file')
+
+    if len(actu) == 1:
+        inputs['actuators'] = actu[0]
+    else:
+        inputs['actuators'] = actu
 
     return inputs
 
