@@ -87,7 +87,9 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
             }
 
     # Give the user a chance to edit these files.
-    fcn(cmc_input)
+    cmc_input = fcn(cmc_input)
+
+    print cmc_input
 
     # Delete the files that didn't change, and properly update the setup files.
     # -------------------------------------------------------------------------
@@ -118,8 +120,10 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
             if len(orig_fpaths['actuators']) < len(cmc_input['actuators']):
                 n_added = (len(cmc_input['actuators']) -
                         len(orig_fpaths['actuators']))
-                for i in range(len(orig_fpaths['actuators']), n_added):
-                    newval += ' ' + cmc_input['actuators'][i]
+                n_prev = len(orig_fpaths['actuators'])
+                for i in range(n_prev, n_prev + n_added):
+                    newval += ' ' + os.path.relpath(cmc_input['actuators'][i],
+                            destination)
             setup.findall('.//%s' % tags['actuators'])[0].text = newval
             del newval
 
