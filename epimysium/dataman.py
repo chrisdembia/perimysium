@@ -311,7 +311,7 @@ def _splitall(path):
             allparts.insert(0, parts[1])
     return allparts
 
-def cmc_input_fpaths():
+def cmc_input_fpaths(cmc_setup_fpath):
     """Given a CMC setup file, returns the paths to all the files that the cmc
     setup file depends on.
 
