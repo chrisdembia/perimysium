@@ -318,6 +318,99 @@ def cmc_input_fpaths():
     """
     pass
 
+def copy_cmc_inputs(cmc_setup_fpath):
+    """Given a CMC setup file, returns the paths to all the files that the cmc
+    setup file depends on.
+
+    Parameters
+    ----------
+    cmc_setup_fpath : str
+        Path to a CMC setup file.
+
+    Returns
+    -------
+    inputs : dict
+        A valid filepath to all the original CMC input files related to the
+        provided CMC setup file.
+        - setup
+        - model
+        - tasks
+        - actuators (str if 1 file, list of str's if multiple files.
+        - control_constraints
+        - desired_kinematics
+        - external_loads
+        - force_plates
+        - extload_kinematics
+
+    """
+    fname = cmc_setup_fpath
+
+    setup = etree.parse(fname)
+
+    inputs = dict()
+
+    def valid_path_helper(file_containing_path, xml, tag):
+
+        path = xml.findall('.//%s' % tag)[0].text
+        return valid_path(path, file_containing_path)
+
+    def valid_path(path, file_containing_path):
+        if path == None or path.lstrip() == '': return None
+        if os.path.exists(path): return path
+
+        if replace:
+            for key, val in replace.items():
+                path = path.replace(key, val)
+        if os.path.exists(path): return path
+
+        path = path.replace('\\', '/')
+        if os.path.exists(path): return path
+
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0], path))
+        if os.path.exists(path2): return path2
+
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0],
+                    path.lstrip()))
+        if os.path.exists(path2): return path2
+
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0],
+                    path.rstrip()))
+        if os.path.exists(path2): return path2
+
+        raise Exception("Paths '%s' and '%s' do not exist." % (path, path2))
+
+    # Get file names.
+    # ---------------
+    # Settings / parameters.
+    inputs['model'] = valid_path_helper(fname, setup, 'model_file')
+    inputs['tasks'] = valid_path_helper(fname, setup, 'task_set_file')
+
+    # This is a list of files, not just 1 file.
+    old_actu = list()
+    for path in setup.findall('.//force_set_files')[0].text.split():
+        old_actu.append(valid_path(path, fname))
+    
+    inputs['control_constraints'] = valid_path_helper(fname, setup,
+            'constraints_file')
+
+    # Data.
+    inputs['desired_kinematics'] = valid_path_helper(fname, setup,
+            'desired_kinematics_file')
+    inputs['external_loads'] = valid_path_helper(fname, setup, 'external_loads_file')
+
+    # Try to open the external loads file.
+    extloads = etree.parse(inputs['external_loads'])
+    inputs['force_plates'] = valid_path_helper(inputs['external_loads'],
+            extloads, 'datafile')
+    inputs['extload_kinematics'] = valid_path_helper(inputs['external_loads'],
+            extloads, 'external_loads_model_kinematics_file')
+
+    return inputs
+
+
 def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
         do_not_copy=None, **kwargs):
     """Given a CMC setup file, copies all files necessary to run CMC over to
