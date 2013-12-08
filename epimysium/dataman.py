@@ -312,13 +312,6 @@ def _splitall(path):
     return allparts
 
 def cmc_input_fpaths():
-    """Assumes the input files refer to valid file paths (which copy_cmc_inputs
-    does not assume).
-
-    """
-    pass
-
-def copy_cmc_inputs(cmc_setup_fpath):
     """Given a CMC setup file, returns the paths to all the files that the cmc
     setup file depends on.
 
