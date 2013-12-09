@@ -524,7 +524,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pErr = dataman.storage2numpy(pErr_fpath)
     actu = dataman.storage2numpy(actu_fpath)
 
-    fig = pl.figure(figsize=(16, 20))
+    fig = pl.figure(figsize=(16, 16))
     pl.subplot2grid((3, 4), (0, 2))
     pl.title('residual forces')
     for coln in ['FX', 'FY', 'FZ']:
