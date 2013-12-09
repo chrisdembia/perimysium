@@ -498,6 +498,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.legend(**legend_kwargs)
     plot_thresholds(pErr, 1)
 
+    pl.tight_layout()
     return fig
 
 
@@ -532,7 +533,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pErr = dataman.storage2numpy(pErr_fpath)
     actu = dataman.storage2numpy(actu_fpath)
 
-    fig = pl.figure(figsize=(16, 16))
+    fig = pl.figure(figsize=(16, 12))
     pl.subplot2grid((3, 4), (0, 2))
     pl.title('residual forces')
     for coln in ['FX', 'FY', 'FZ']:
@@ -679,6 +680,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.ylim((-25, 25))
     plot_thresholds(actu, 10)
 
+    pl.tight_layout()
     return fig
 
 def plot_kinematics_verification(pErr_table,
