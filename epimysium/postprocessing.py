@@ -412,6 +412,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.grid(axis='y')
     plot_thresholds(actu, 10)
     plot_thresholds(actu, 25)
 
@@ -424,6 +425,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.grid(axis='y')
     plot_thresholds(actu, 30)
 
     pl.subplot(423)
@@ -436,6 +438,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.ylim((-2, 2))
     pl.ylabel('translation error (cm)')
     pl.legend(**legend_kwargs)
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot(424)
@@ -448,6 +451,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot(425)
@@ -459,6 +463,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot(426)
@@ -470,6 +475,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot(427)
@@ -482,6 +488,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot(428)
@@ -496,6 +503,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
     pl.legend(**legend_kwargs)
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.tight_layout()
@@ -543,6 +551,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.grid(axis='y')
     plot_thresholds(actu, 10)
     plot_thresholds(actu, 25)
 
@@ -555,6 +564,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.grid(axis='y')
     plot_thresholds(actu, 30)
 
     pl.subplot2grid((3, 4), (0, 0))
@@ -567,6 +577,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot2grid((3, 4), (0, 1))
@@ -579,6 +590,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot2grid((3, 4), (1, 0))
@@ -590,6 +602,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot2grid((3, 4), (1, 2))
@@ -602,6 +615,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     pl.ylim((-25, 25))
+    pl.grid(axis='y')
     plot_thresholds(actu, 10)
 
     pl.subplot2grid((3, 4), (1, 1))
@@ -613,6 +627,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot2grid((3, 4), (1, 3))
@@ -625,6 +640,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     pl.ylim((-25, 25))
+    pl.grid(axis='y')
     plot_thresholds(actu, 10)
 
     pl.subplot2grid((3, 4), (2, 0))
@@ -637,6 +653,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot2grid((3, 4), (2, 2))
@@ -650,6 +667,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     pl.ylim((-25, 25))
+    pl.grid(axis='y')
     plot_thresholds(actu, 10)
 
     pl.subplot2grid((3, 4), (2, 1))
@@ -664,6 +682,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
     pl.ylim((-2, 2))
+    pl.grid(axis='y')
     plot_thresholds(pErr, 1)
 
     pl.subplot2grid((3, 4), (2, 3))
@@ -678,6 +697,7 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.legend(**legend_kwargs)
     pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
     pl.ylim((-25, 25))
+    pl.grid(axis='y')
     plot_thresholds(actu, 10)
 
     pl.tight_layout()
