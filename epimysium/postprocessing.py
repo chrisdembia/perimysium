@@ -397,13 +397,23 @@ def plot_rra_gait_info(rra_results_dir):
         pl.plot([data['time'][0], data['time'][-1]], [-val, -val],
                 c=[0.7, 0.7, 0.7])
 
+    def make_pretty_perr():
+        pl.axhline(0, c='k')
+        pl.ylabel('rotation error (deg)')
+        pl.xlabel('time (s)')
+        pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+        pl.ylim((-2, 2))
+        pl.legend(**legend_kwargs)
+        pl.grid(axis='y')
+        plot_thresholds(pErr, 1)
+
     legend_kwargs = {'loc': 'best', 'prop': {'size': 12}, 'frameon': False}
 
     pErr = dataman.storage2numpy(pErr_fpath)
     actu = dataman.storage2numpy(actu_fpath)
 
-    fig = pl.figure(figsize=(12, 16))
-    pl.subplot(421)
+    fig = pl.figure(figsize=(12, 24))
+    pl.subplot(621)
     pl.title('residual forces')
     for coln in ['FX', 'FY', 'FZ']:
         pl.plot(actu['time'], actu[coln], label=coln)
@@ -416,7 +426,7 @@ def plot_rra_gait_info(rra_results_dir):
     plot_thresholds(actu, 10)
     plot_thresholds(actu, 25)
 
-    pl.subplot(422)
+    pl.subplot(622)
     pl.title('residual moments')
     for coln in ['MX', 'MY', 'MZ']:
         pl.plot(actu['time'], actu[coln], label=coln)
@@ -428,83 +438,69 @@ def plot_rra_gait_info(rra_results_dir):
     pl.grid(axis='y')
     plot_thresholds(actu, 30)
 
-    pl.subplot(423)
+    pl.subplot(623)
     m2cm = 100
     pl.title('pelvis translation')
     for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
         pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
-    pl.axhline(0, c='k')
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
-    pl.ylim((-2, 2))
-    pl.ylabel('translation error (cm)')
-    pl.legend(**legend_kwargs)
-    pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    make_pretty_perr()
 
-    pl.subplot(424)
+    pl.subplot(624)
     rad2deg = np.rad2deg(1.0)
     pl.title('pelvis rotations')
     for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
-    pl.axhline(0, c='k')
-    pl.ylabel('rotation error (deg)')
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
-    pl.ylim((-2, 2))
-    pl.legend(**legend_kwargs)
-    pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    make_pretty_perr()
 
-    pl.subplot(425)
+    pl.subplot(625)
     pl.title('left lower limb')
     for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
-    pl.axhline(0, c='k')
-    pl.ylabel('rotation error (deg)')
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
-    pl.ylim((-2, 2))
-    pl.legend(**legend_kwargs)
-    pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    make_pretty_perr()
 
-    pl.subplot(426)
+    pl.subplot(626)
     pl.title('right lower limb')
     for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
-    pl.axhline(0, c='k')
-    pl.ylabel('rotation error (deg)')
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
-    pl.ylim((-2, 2))
-    pl.legend(**legend_kwargs)
-    pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    make_pretty_perr()
 
-    pl.subplot(427)
+    pl.subplot(627)
     pl.title('lumbar rotations')
     for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
-    pl.axhline(0, c='k')
-    pl.ylabel('rotation error (deg)')
-    pl.xlabel('time (s)')
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
-    pl.ylim((-2, 2))
-    pl.legend(**legend_kwargs)
-    pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    make_pretty_perr()
 
-    pl.subplot(428)
+    pl.subplot(628)
     pl.title('hips')
     labels = ['rot_r', 'rot_l', 'add_r', 'add_l']
     for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
         'hip_adduction_r', 'hip_adduction_l']):
         pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
-    pl.axhline(0, c='k')
-    pl.ylabel('rotation error (deg)')
-    pl.xlabel('time (s)')
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
-    pl.ylim((-2, 2))
-    pl.legend(**legend_kwargs)
-    pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    make_pretty_perr()
+
+    pl.subplot(629)
+    pl.title('left upper arm')
+    for coln in ['arm_flex_l', 'arm_add_l', 'arm_rot_l']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+    make_pretty_perr()
+
+    pl.subplot(6, 2, 10)
+    pl.title('right upper arm')
+    for coln in ['arm_flex_r', 'arm_add_r', 'arm_rot_r']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+    make_pretty_perr()
+
+    pl.subplot(6, 2, 11)
+    pl.title('left lower arm')
+    for coln in ['elbow_flex_l', 'pro_sup_l']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+    make_pretty_perr()
+
+    pl.subplot(6, 2, 12)
+    pl.title('right lower arm')
+    for coln in ['elbow_flex_r', 'pro_sup_r']:
+        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+    make_pretty_perr()
 
     pl.tight_layout()
     return fig
