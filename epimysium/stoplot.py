@@ -64,13 +64,15 @@ class StoragePlotter(HasTraits):
                     height=300,
                     resizable=True)
 
-    def __init__(self, stofpath):
+    def __init__(self, stofpath, *columns):
         HasTraits.__init__(self, trait_value=True)
         self.data = storage2numpy(stofpath)
         axes = self.figure.add_subplot(111)
         for name in self.data.dtype.names:
-            if name != 'time':
-                axes.plot(self.data['time'], self.data[name])
+            if name != 'time' and (len(columns) == 0 or name in columns):
+                axes.plot(self.data['time'], self.data[name], label=name)
+        axes.set_xlabel('time (s)')
+        axes.legend(loc='best')
 
 def start_gui(*args, **kwargs):
     '''Start the GUI. The GUI automatically creates a Human, and lets the user
@@ -90,7 +92,7 @@ def start_plotter(*args, **kwargs):
     plotter.configure_traits()
 
 if __name__ == '__main__':
-    start_plotter(sys.argv[1])
+    start_plotter(*sys.argv[1:])
 
 
 
