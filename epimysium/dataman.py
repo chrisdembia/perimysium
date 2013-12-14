@@ -43,9 +43,101 @@ if sys.version_info[0] == 2 and sys.version_info[1] < 6:
         return os.path.join(*rel_list)
     os.path.relpath = relpath
 
+class ANCFile(object):
+    """A plain-text file format for storing analog data from Motion Analysis
+    Realtime. They have a file extension '.anc'. The file extension '.anb' is
+    for binary files.
+
+    The metadata for the file is stored in attributes of this object.
+
+    This class is based off of similar code written by Amy Silder.
+
+    """
+    def __init__(self, fpath):
+        """
+        Parameters
+        ----------
+        fpath : str
+            Valid file path to an ANC (.anc) file.
+
+        """
+        with open(fpath) as f:
+            line1 = f.readline()
+            line1list = line1.split('\t')
+            self.file_type = line1list[1].strip()
+            self.generation = line1list[3].strip()
+
+            line2 = f.readline()
+            line2list = line2.split('\t')
+            self.board_type = line2list[1].strip()
+            self.polarity = line2list[3].strip()
+
+            line3 = f.readline()
+            line3list = line3.split('\t')
+            self.trial_name = line3list[1]
+            self.trial_num = int(line3list[3])
+            self.duration = float(line3list[5])
+            self.num_channels = int(line3list[7])
+
+            line4 = f.readline()
+            line4list = line4.split('\t')
+            self.bit_depth = int(line4list[1])
+            self.precise_rate = float(line4list[3])
+
+            line = f.readline()
+            iline = 5
+            while line.strip() == '':
+                # There will most likely be a few empty lines.
+                line = f.readline()
+                iline += 1
+
+            # Metadata for each column.
+            header_row = line
+            self.names = header_row.split()[1:]
+            rate_row = f.readline()
+            iline += 1
+            self.rates = {self.names[i]: float(v) for i, v in
+                    enumerate(rate_row.split()[1:])}
+            range_row = f.readline()
+            iline += 1
+            self.ranges = {self.names[i]: float(v) for i, v in
+                    enumerate(range_row.split()[1:])}
+
+        dtype = {'names': ['time'] + self.names,
+                'formats': (len(self.names) + 1) * ['float64']}
+        self.data = np.loadtxt(fpath, delimiter='\t', skiprows=iline,
+                    dtype=dtype)
+        self.time = self.data['time']
+
+    def __getitem__(self, name):
+        """See `column()`.
+
+
+        """
+
+    def column(self, name):
+        """
+        Parameters
+        ----------
+        name : str
+            Name of a column in the file (e.g., 'F1X'). For the 'time', column,
+            just get the 'time' attribute.
+
+        Returns
+        -------
+        col : np.array
+            The data you are looking for.
+
+        """
+        return self.data[name]
+
+
+
 class TRCFile(object):
     """A plain-text file format for storing motion capture marker trajectories.
     TRC stands for Track Row Column.
+
+    The metadata for the file is stored in attributes of this object.
 
     See
     http://simtk-confluence.stanford.edu:8080/display/OpenSim/Marker+(.trc)+Files
@@ -137,7 +229,15 @@ class TRCFile(object):
         return this_dat
 
     def add_marker(self, name, x, y, z):
-        """Add a marker, with name, `name`, to the TRCFile.
+        """Add a marker, with name `name` to the TRCFile.
+
+        Parameters
+        ----------
+        name : str
+            Name of the marker; e.g., 'R.Hip'.
+        x, y, z: array_like
+            Coordinates of the marker trajectory. All 3 must have the same
+            length.
 
         """
         if (len(x) != self.num_frames or len(y) != self.num_frames or len(z) !=
@@ -153,6 +253,7 @@ class TRCFile(object):
         Returns
         -------
         exists : bool
+            Is the marker in the TRCFile?
 
         """
         return name in self.marker_names
@@ -663,7 +764,8 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     return old, new_fpaths
 
 
-def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, **kwargs):
+def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True,
+        **kwargs):
     """Docks all simulations in the tree into the h5file at the desired
     location. The directory structure used in the h5 file is the same that is
     used for the simulation output. All leaves in the tree MUST be simulation
@@ -680,6 +782,7 @@ def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True, 
         docked.
     verbose : bool, optional (default: True)
         Prints a notice for every output loaded into the pyTables file.
+    kwargs : passed onto `dock_output_in_pytable`.
 
     """
     # TODO overwrite : bool, optional (default : False)
