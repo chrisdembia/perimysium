@@ -87,7 +87,9 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
             }
 
     # Give the user a chance to edit these files.
-    cmc_input = fcn(cmc_input)
+    new_cmc_input_maybe = fcn(cmc_input)
+    if new_cmc_input_maybe:
+        cmc_input = new_cmc_input_maybe
 
     # Delete the files that didn't change, and properly update the setup files.
     # -------------------------------------------------------------------------
@@ -114,7 +116,8 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
                     newval += ' ' + os.path.relpath(orig_fpaths['actuators'][i],
                             destination)
                 else:
-                    newval += ' ' + cmc_input['actuators'][i]
+                    newval += ' ' + os.path.relpath(cmc_input['actuators'][i],
+                            destination)
             if len(orig_fpaths['actuators']) < len(cmc_input['actuators']):
                 n_added = (len(cmc_input['actuators']) -
                         len(orig_fpaths['actuators']))
