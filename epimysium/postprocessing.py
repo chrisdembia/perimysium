@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib
 import pylab as pl
 import tables
+frim scipy.signal import butter, filtfilt
 
 from epimysium import dataman
 
@@ -21,6 +22,130 @@ def savefigtolog(figname, *args, **kwargs):
 
 def nearest_index(array, val):
     return np.abs(array - val).argmin()
+
+def filter_emg(raw_signal, sampling_rate, bandpass_order=6,
+        bandpass_lower_frequency=50, bandpass_upper_frequency=500,
+        lowpass_order=4,
+        lowpass_frequency=30):
+    """Filters a raw EMG signal. The signal must have been sampled at a
+    constant rate. We perform the following steps:
+
+    1. Butterworth bandpass filter.
+    2. Butterworth lowpass filter.
+    3. Critically damped lowpass filter.
+
+    The signals are applied forward and backward (`filtfilt`), which should
+    prevent a time delay.
+
+    Parameters
+    ----------
+    raw_signal : array_like
+        Raw EMG signal.
+    sampling_rate : float
+        In Hertz.
+    bandpass_order : int, optional
+    bandpass_lower_frequency : float, optional
+        In the bandpass filter, what is the lower cutoff frequency? In Hertz.
+    bandpass_upper_frequency : float, optional
+        In the bandpass filter, what is the upper cutoff frequency? In Hertz.
+    lowpass_order : int, optional
+    lowpass_frequency : float, optional
+        In the lowpass filter, what is the cutoff frequency? In Hertz.
+
+    Returns
+    -------
+    filtered_signal : array_like
+
+    """
+    half_sampling_rate = 0.5 * sampling_rate
+
+    # Bandpass.
+    # ---------
+    normalized_bandpass_lower = bandpass_lower_frequency / half_sampling_rate
+    normalized_bandpass_upper = bandpass_upper_frequency / half_sampling_rate
+    bandpass_cutoffs = [normalized_bandpass_lower, normalized_bandpass_upper]
+    bandpass_b, bandpass_a = butter(bandpass_order, bandpass_cutoffs)
+
+    bandpassed = filtfilt(bandpass_b, bandpass_a, raw_signal)
+
+    # Lowpass.
+    # --------
+    lowpass_cutoff = lowpass_frequency / half_sampling_rate
+    lowpass_b, lowpass_a = butter(lowpass_order, lowpass_cutoff)
+
+    lowpassed = filtfilt(lowpass_b, lowpass_a, bandpassed)
+
+    # Critically damped filter.
+    # -------------------------
+    cd_order = 4
+    cd_lowpass_frequency = 0.5 * lowpass_frequency
+    cdfed = filter_critically_damped(lowpassed, sampling_rate, cd_order,
+            lowpass_cutoff_frequency=cd_lowpass_frequency)
+    return cdfed
+
+def filter_critically_damped(before, sampling_rate, order=4,
+        lowpass_cutoff_frequency):
+    """See Robertson, 2003. This code is transcribed from some MATLAB code that
+    Amy Silder gave me. This implementation is slightly different from that
+    appearing in Robertson, 2003. We only allow lowpass filtering.
+
+    Parameters
+    ----------
+    before : array_like
+        The signal to filter.
+    sampling_rate : float
+    order : int, optional
+        Number of filter passes.
+    lowpass_cutoff_frequency : float
+        In Hertz (not normalized).
+
+    Returns
+    -------
+    after : array_like
+
+    """
+    if lowpass_cutoff_frequency == None:
+        lowpass_cutoff_frequency = 1.0
+
+    # 3 dB cutoff correction.
+    Clp = (2 ** (1.0 / (2.0 * order)) - 1.0) ** (-0.5)
+
+    # Corrected cutoff frequency.
+    flp = Clp * lowpass_cutoff_frequency / sampling_rate
+
+    # Warp cutoff frequency from analog to digital domain.
+    wolp = np.tan(np.pi * flp)
+
+    # Filter coefficients, K1 and K2.
+    # lowpass: a0 = A0, a1 = A1, a2 = A2, b1 = B2, b2 = B2
+    K1lp = 2.0 * wolp
+    K2lp = wolp ** 2
+
+    # Filter coefficients.
+    a0lp = K2lp / (1.0 + K1lp + K2lp)
+    a1lp = 2.0 * a0lp
+    a2lp = a0lp
+    b1lp = 2.0 * a0lp  * (1.0 / K2lp - 1.0)
+    b2lp = 1.0 - (a0lp + a1lp + a2lp + b1lp)
+
+    num_rows = len(before)
+    after = np.zeros(num_rows)
+    # For order = 4, we go forward, backward, forward, backward.
+    n = 0 # Don't actually use this except for loop control.
+    while n < order:
+        n += 1
+        for i in range(2, num_rows):
+            after[i] = (a0lp * before[i] +
+                    a1lp * before[i - 1] +
+                    a2lp * before[i - 2] +
+                    b1lp * before[i - 1] +
+                    b2lp * before[i - 2])
+        # Perform the filter backwards.
+        before = np.flipud(after)
+        after = np.zeros(num_rows)
+
+    after = before
+    return after
 
 
 def metabolic_expenditure_const_eff(power, exclude=None, concentric_eff=0.25,
@@ -78,7 +203,7 @@ def sum_of_squared_activations(states_table):
     -------
     SSA : numpy.ndarray
         Time series of the sum of squared muscle activations.
-    
+
     """
     SSA = np.zeros(states_table.col('time').shape)
     for col_name in states_table.colnames:
@@ -300,7 +425,7 @@ def sorted_avg_difference(table1, table2,
             diff_avgs[coln] = (
                     avg(table1.cols.time[::interval],
                         table1.col(coln)[::interval],
-                        init_time, final_time) - 
+                        init_time, final_time) -
                     avg(table2.cols.time[::interval],
                         table2.col(coln)[::interval],
                         init_time, final_time))
@@ -1677,7 +1802,7 @@ def shift_data_to_cycle(
             lost_time_gap = 0.0
         else:
             lost_time_gap = time[new_start_index] - time[new_start_index - 1]
-    
+
         # Starts at 0.0.
         if new_cycle_start_time < time[0]:
             addin = gap_before_avail_data
@@ -1685,21 +1810,21 @@ def shift_data_to_cycle(
             addin = 0
         first_portion_of_new_time = (time[new_start_index:old_end_index+1] -
                 new_cycle_start_time + addin)
-    
+
         # Second portion: (1) shift to 0, then move to the right of first portion.
         second_portion_to_zero = \
                 time[old_start_index:new_start_index] - arbitrary_cycle_start_time
         second_portion_of_new_time = (second_portion_to_zero +
                 first_portion_of_new_time[-1] + lost_time_gap +
                 gap_after_avail_data)
-    
+
         shifted_time = np.concatenate(
                 (first_portion_of_new_time, second_portion_of_new_time))
-    
+
         # Apply cut-off:
         if cut_off:
             ordinate[old_end_index] = np.nan
-    
+
         # Shift the ordinate.
         shifted_ordinate = np.concatenate(
                 (ordinate[new_start_index:old_end_index+1],
@@ -2263,7 +2388,7 @@ class GaitScrutinyReport:
         max_metabolic_rate : float, optional
             Set the ymax value for all muscle metabolic consumption rate to
             this value.
-        muscles : optional 
+        muscles : optional
             TODO
 
         """
@@ -2383,10 +2508,10 @@ class GaitScrutinyReport:
             Name of the file to save the PDF to.
         """
         # TODO joint torques
-    
+
         from matplotlib.backends.backend_pdf import PdfPages
         pp = PdfPages(fname)
-    
+
         # Helper methods
         # --------------
         def plot_for_a_leg(table, landmarks, coordinate_name, leg, new_start,
@@ -2399,16 +2524,16 @@ class GaitScrutinyReport:
                     getattr(table.cols,
                         coordinate_name.replace('!', leg[0]))[::interval],
                     )#cut_off=True)
-    
+
             if mult != None: ordinate *= mult
-    
+
             pl.plot(percent_duration(time), ordinate, color=color,
                         label=leg, **kwargs)
-    
+
         def plot_primary_leg(table, series, coordinate_name, **kwargs):
             plot_for_a_leg(table, series, coordinate_name,
                     series['primary_leg'], 'primary_strike', **kwargs)
-    
+
         def plot_opposite_leg(table, series, coordinate_name, **kwargs):
             if series['primary_leg'] == 'right': opposite_leg = 'left'
             elif series['primary_leg'] == 'left': opposite_leg = 'right'
@@ -2418,28 +2543,28 @@ class GaitScrutinyReport:
 
             plot_for_a_leg(table, series, coordinate_name, opposite_leg,
                     'opposite_strike', color=(0.5, 0.5, 0.5), **kwargs)
-    
+
         def plot_coordinate(grid, loc, table, name, units='-', negate=False,
                 label=None, title=None, ylims=None, **kwargs):
-    
+
             def plot_a_series(series, label, **kwargs):
-    
+
                 if table == 'joint_torques':
                     thetable = series['joint_torques']
                 else:
                     thetable = getattr(series['sim'], table)
-    
+
                 mult = -1.0 if negate else None
-    
+
                 plot_primary_leg(thetable, series, name, mult=mult, **kwargs)
                 if self._do_plot_opposite:
                     plot_opposite_leg(thetable, series, name, mult=mult,
                             **kwargs)
-    
+
                 # TODO this next line isn't so great of an idea:
                 if label: pl.ylabel('%s (%s)' % (label, units))
                 if title: pl.title(title, fontsize=12)
-    
+
             def plot_landmarks(series, ylims, **kwargs):
                 if series['toeoff'] != None:
                     duration = series['cycle_end'] - series['cycle_start']
@@ -2452,31 +2577,31 @@ class GaitScrutinyReport:
                         chunk1 = series['cycle_end'] - series['primary_strike']
                         chunk2 = series['toeoff'] - series['cycle_start']
                         toeoff_pgc = (chunk1 + chunk2) / duration * 100.0
-    
+
                     if ylims == None: ylims = ax.get_ylim()
                     pl.plot(toeoff_pgc * np.array([1, 1]), ylims,
                             c=(0.8, 0.8, 0.8), zorder=0, **kwargs)
-    
-            if type(grid) == tuple:        
+
+            if type(grid) == tuple:
                 ax = pl.subplot2grid(grid, loc)
             else:
                 ax = pl.subplot(grid[loc[0], loc[1]])
-    
+
             # Add a curve to this plot for each sim and each comp.
             for comp in self._comps:
                 plot_a_series(comp, label, **kwargs)
             for sim in self._sims:
                 plot_a_series(sim, label, color='r', lw=1.5, **kwargs)
-    
+
             # Must be done after all other plotting, so that we use the correct
             # ylims.
             for comp in self._comps:
                 plot_landmarks(comp, ylims)
             for sim in self._sims:
                 plot_landmarks(sim, ylims, color='r', lw=1.5)
-    
+
             pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
-    
+
         # Title page
         # ----------
         ftitle = pl.figure()
@@ -2492,27 +2617,27 @@ class GaitScrutinyReport:
         Black lines are for the primary limb; gray lines are for the
         opposite limb, and that data is wrapped around so that it starts
         with stance."""
-    
+
         pl.text(0, 0.7, desc)
         pp.savefig(ftitle)
-    
+
         # Joint angles
         # ------------
         print 'Processing joint angles.'
         fkin = pl.figure(figsize=(3.5, 7.5))
         gs = pl.GridSpec(3, 1)
         pl.suptitle('JOINT ANGLES', weight='bold')
-    
+
         def plot_kin(index, name, **kwargs):
             plot_coordinate(gs, (index, 0), 'Kinematics_q',
                     '%s_!' % name, 'degrees', **kwargs)
-    
+
         plot_kin(0, 'hip_flexion', title='hip', label='hip flexion')
         plot_kin(1, 'knee_angle', negate=True, label='knee flexion',
                 title='knee')
         plot_kin(2, 'ankle_angle', label='ankle dorsiflexion', title='ankle')
         pl.xlabel('percent gait cycle')
-    
+
         gs.tight_layout(fkin, rect=[0, 0, 1, 0.95])
         pp.savefig(fkin)
 
@@ -2523,21 +2648,21 @@ class GaitScrutinyReport:
             fjt = pl.figure(figsize=(3.5, 7.5))
             gs = pl.GridSpec(3, 1)
             pl.suptitle('JOINT TORQUES', weight='bold')
-    
+
             def plot_jt(index, name, **kwargs):
                 plot_coordinate(gs, (index, 0), 'joint_torques',
                         '%s_!' % name, 'N-m', **kwargs)
-    
+
             plot_jt(0, 'hip_flexion', title='hip', label='hip flexion moment')
             plot_jt(1, 'knee_angle', negate=True, label='knee flexion moment',
                     title='knee')
             plot_jt(2, 'ankle_angle',
                     label='ankle dorsiflexion moment', title='ankle')
             pl.xlabel('percent gait cycle')
-    
+
             gs.tight_layout(fjt, rect=[0, 0, 1, 0.95])
             pp.savefig(fjt)
-    
+
         # Muscles!
         # ========
         def create_plate(subtitle, table, ylabel, pattern, dims, mset,
@@ -2546,18 +2671,18 @@ class GaitScrutinyReport:
             f = pl.figure(figsize=(3.5 * dims[1], 2.5 * dims[0]))
             gs = pl.GridSpec(dims[0], dims[1])
             pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
-    
+
             for loc, name in mset.items():
                 plot_coordinate(gs, loc, table,
                         pattern % name, title=muscle_names[name], **kwargs)
                 if loc[1] == 0: pl.ylabel(ylabel)
                 if loc[0] == (dims[0] - 1): pl.xlabel('percent gait cycle')
-    
+
                 if yticks: pl.yticks(yticks)
-    
+
             gs.tight_layout(f, rect=[0, 0, 1, 0.95])
             pp.savefig(f)
-    
+
         # Define muscles to use for the remaining sets of plots.
         muscle_names = dict()
         muscle_names['rect_fem'] = 'rectus femoris'
@@ -2576,7 +2701,7 @@ class GaitScrutinyReport:
         muscle_names['lat_gas'] = 'lateral gastrocnemius'
         muscle_names['soleus'] = 'soleus'
         muscle_names['tib_post'] = 'tibialis posterior'
-    
+
         muscle_names['flex_dig'] = 'flexor digitorum'
         muscle_names['flex_hal'] = 'flexor hallucis'
         muscle_names['per_brev'] = 'peroneus brevis'
@@ -2593,7 +2718,7 @@ class GaitScrutinyReport:
         muscle_names['tfl'] = 'tensor fascia latae'
         muscle_names['iliacus'] = 'iliacus'
         muscle_names['psoas'] = 'psoas major'
-    
+
         muscle_names['glut_max1'] = 'gluteus maximus 1'
         muscle_names['glut_max2'] = 'gluteus maximus 2'
         muscle_names['glut_max3'] = 'gluteus maximus 3'
@@ -2608,77 +2733,77 @@ class GaitScrutinyReport:
         muscle_names['add_mag3'] = 'adductor magnus 3'
         muscle_names['add_long'] = 'adductor longus'
         muscle_names['add_brev'] = 'adductor brevis'
-    
+
         if self._muscles == None:
             mset1 = dict()
-    
+
             # Quadriceps.
             mset1[(0, 0)] = 'rect_fem'
             mset1[(0, 1)] = 'vas_med'
             mset1[(0, 2)] = 'vas_int'
             mset1[(0, 3)] = 'vas_lat'
-    
+
             # Hamstrings.
             mset1[(1, 0)] = 'semimem'
             mset1[(1, 1)] = 'semiten'
             mset1[(1, 2)] = 'bifemsh'
             mset1[(1, 3)] = 'bifemlh'
-    
+
             # Dorsiflexors.
             mset1[(2, 0)] = 'tib_ant'
             mset1[(2, 1)] = 'ext_dig'
             mset1[(2, 2)] = 'ext_hal'
             mset1[(2, 3)] = 'per_tert'
-    
+
             # Plantarflexors.
             mset1[(3, 0)] = 'med_gas'
             mset1[(3, 1)] = 'lat_gas'
             mset1[(3, 2)] = 'soleus'
             mset1[(3, 3)] = 'tib_post'
-    
+
             # Define muscles to use for the remaining sets of plots.
             mset2 = dict()
-    
+
             # Torso.
             mset2[(0, 0)] = 'ercspn'
             mset2[(0, 1)] = 'extobl'
             mset2[(0, 2)] = 'intobl'
             mset2[(0, 3)] = 'psoas'
-    
+
             # Butt muscles.
             mset2[(1, 0)] = 'pect'
             mset2[(1, 1)] = 'quad_fem'
             mset2[(1, 2)] = 'gem'
             mset2[(1, 3)] = 'peri'
-    
+
             # Thigh muscles.
             mset2[(2, 0)] = 'grac'
             mset2[(2, 1)] = 'sar'
             mset2[(2, 2)] = 'tfl'
             mset2[(2, 3)] = 'iliacus'
-    
+
             # Plantarflexors.
             mset2[(3, 0)] = 'flex_dig'
             mset2[(3, 1)] = 'flex_hal'
             mset2[(3, 2)] = 'per_brev'
             mset2[(3, 3)] = 'per_long'
-    
+
             # Define muscles to use for the remaining sets of plots.
             mset3 = dict()
-    
+
             mset3[(0, 0)] = 'glut_max1'
             mset3[(0, 1)] = 'glut_max2'
             mset3[(0, 2)] = 'glut_max3'
-    
+
             mset3[(1, 0)] = 'glut_med1'
             mset3[(1, 1)] = 'glut_med2'
             mset3[(1, 2)] = 'glut_med3'
-    
+
             mset3[(2, 0)] = 'glut_min1'
             mset3[(2, 1)] = 'glut_min2'
             mset3[(2, 2)] = 'glut_min3'
             mset3[(2, 3)] = 'add_long'
-    
+
             mset3[(3, 0)] = 'add_mag1'
             mset3[(3, 1)] = 'add_mag2'
             mset3[(3, 2)] = 'add_mag3'
@@ -2775,7 +2900,7 @@ class GaitScrutinyReport:
                 pl.suptitle('VERIFICATION OF %s' % (a_sim['name']),
                         fontweight='bold')
                 pp.savefig(fig)
-    
+
         # That's all, folks.
         # ------------------
         pp.close()
