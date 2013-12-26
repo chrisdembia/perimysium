@@ -6,4 +6,4 @@ if __name__ == '__main__':
 
     from epimysium.stoplot import start_plotter
 
-    start_plotter(sys.argv[1])
+    start_plotter(*sys.argv[1:])

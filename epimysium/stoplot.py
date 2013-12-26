@@ -23,7 +23,7 @@ from traitsui.api import View, Item
 from traitsui.wx.editor import Editor
 from traitsui.wx.basic_editor_factory import BasicEditorFactory
 
-from dataman import storage2numpy
+from dataman import storage2numpy, TRCFile
 
 class _MPLFigureEditor(Editor):
 
@@ -66,7 +66,10 @@ class StoragePlotter(HasTraits):
 
     def __init__(self, stofpath, *columns):
         HasTraits.__init__(self, trait_value=True)
-        self.data = storage2numpy(stofpath)
+        if stofpath.endswith('.sto') or stofpath.endswith('.mot'):
+            self.data = storage2numpy(stofpath)
+        elif stofpath.endswith('.trc'):
+            self.data = TRCFile(stofpath).data
         axes = self.figure.add_subplot(111)
         for name in self.data.dtype.names:
             if name != 'time' and (len(columns) == 0 or name in columns):
