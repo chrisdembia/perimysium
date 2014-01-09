@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib
 import pylab as pl
 import tables
-frim scipy.signal import butter, filtfilt
+from scipy.signal import butter, filtfilt
 
 from epimysium import dataman
 
@@ -26,7 +26,8 @@ def nearest_index(array, val):
 def filter_emg(raw_signal, sampling_rate, bandpass_order=6,
         bandpass_lower_frequency=50, bandpass_upper_frequency=500,
         lowpass_order=4,
-        lowpass_frequency=30):
+        lowpass_frequency=7.5,
+        cd_lowpass_frequency=15.0):
     """Filters a raw EMG signal. The signal must have been sampled at a
     constant rate. We perform the following steps:
 
@@ -51,64 +52,70 @@ def filter_emg(raw_signal, sampling_rate, bandpass_order=6,
     lowpass_order : int, optional
     lowpass_frequency : float, optional
         In the lowpass filter, what is the cutoff frequency? In Hertz.
+    cd_lowpass_frequency : float, optional
+        In the Critically damped lowpass filter, what is the cutoff frequency?
+        In Hertz.
 
     Returns
     -------
     filtered_signal : array_like
 
     """
-    half_sampling_rate = 0.5 * sampling_rate
+    nyquist_frequency = 0.5 * sampling_rate
 
     # Bandpass.
     # ---------
-    normalized_bandpass_lower = bandpass_lower_frequency / half_sampling_rate
-    normalized_bandpass_upper = bandpass_upper_frequency / half_sampling_rate
+    normalized_bandpass_lower = bandpass_lower_frequency / nyquist_frequency
+    normalized_bandpass_upper = bandpass_upper_frequency / nyquist_frequency
     bandpass_cutoffs = [normalized_bandpass_lower, normalized_bandpass_upper]
-    bandpass_b, bandpass_a = butter(bandpass_order, bandpass_cutoffs)
+    bandpass_b, bandpass_a = butter(bandpass_order, bandpass_cutoffs,
+            btype='bandpass')
 
     bandpassed = filtfilt(bandpass_b, bandpass_a, raw_signal)
 
+    # Rectify.
+    # --------
+    rectified = np.abs(bandpassed)
+
     # Lowpass.
     # --------
-    lowpass_cutoff = lowpass_frequency / half_sampling_rate
+    lowpass_cutoff = lowpass_frequency / nyquist_frequency
     lowpass_b, lowpass_a = butter(lowpass_order, lowpass_cutoff)
 
-    lowpassed = filtfilt(lowpass_b, lowpass_a, bandpassed)
+    lowpassed = filtfilt(lowpass_b, lowpass_a, rectified)
 
     # Critically damped filter.
     # -------------------------
     cd_order = 4
-    cd_lowpass_frequency = 0.5 * lowpass_frequency
-    cdfed = filter_critically_damped(lowpassed, sampling_rate, cd_order,
-            lowpass_cutoff_frequency=cd_lowpass_frequency)
+    cdfed = filter_critically_damped(lowpassed, sampling_rate,
+            cd_lowpass_frequency, order=4)
+
     return cdfed
 
-def filter_critically_damped(before, sampling_rate, order=4,
-        lowpass_cutoff_frequency):
+def filter_critically_damped(data, sampling_rate, lowpass_cutoff_frequency,
+        order=4):
     """See Robertson, 2003. This code is transcribed from some MATLAB code that
     Amy Silder gave me. This implementation is slightly different from that
     appearing in Robertson, 2003. We only allow lowpass filtering.
 
     Parameters
     ----------
-    before : array_like
+    data : array_like
         The signal to filter.
     sampling_rate : float
-    order : int, optional
-        Number of filter passes.
     lowpass_cutoff_frequency : float
         In Hertz (not normalized).
+    order : int, optional
+        Number of filter passes.
 
     Returns
     -------
-    after : array_like
+    data : array_like
+        Filtered data.
 
     """
-    if lowpass_cutoff_frequency == None:
-        lowpass_cutoff_frequency = 1.0
-
     # 3 dB cutoff correction.
-    Clp = (2 ** (1.0 / (2.0 * order)) - 1.0) ** (-0.5)
+    Clp = (2.0 ** (1.0 / (2.0 * order)) - 1.0) ** (-0.5)
 
     # Corrected cutoff frequency.
     flp = Clp * lowpass_cutoff_frequency / sampling_rate
@@ -128,24 +135,21 @@ def filter_critically_damped(before, sampling_rate, order=4,
     b1lp = 2.0 * a0lp  * (1.0 / K2lp - 1.0)
     b2lp = 1.0 - (a0lp + a1lp + a2lp + b1lp)
 
-    num_rows = len(before)
-    after = np.zeros(num_rows)
+    num_rows = len(data)
+    temp_filtered = np.zeros(num_rows)
     # For order = 4, we go forward, backward, forward, backward.
-    n = 0 # Don't actually use this except for loop control.
-    while n < order:
-        n += 1
+    for n_pass in range(order):
         for i in range(2, num_rows):
-            after[i] = (a0lp * before[i] +
-                    a1lp * before[i - 1] +
-                    a2lp * before[i - 2] +
-                    b1lp * before[i - 1] +
-                    b2lp * before[i - 2])
+            temp_filtered[i] = (a0lp * data[i] +
+                    a1lp * data[i - 1] +
+                    a2lp * data[i - 2] +
+                    b1lp * temp_filtered[i - 1] +
+                    b2lp * temp_filtered[i - 2])
         # Perform the filter backwards.
-        before = np.flipud(after)
-        after = np.zeros(num_rows)
+        data = np.flipud(temp_filtered)
+        temp_filtered = np.zeros(num_rows)
 
-    after = before
-    return after
+    return data
 
 
 def metabolic_expenditure_const_eff(power, exclude=None, concentric_eff=0.25,

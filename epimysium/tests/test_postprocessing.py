@@ -1,7 +1,19 @@
+import os
+
 import numpy as np
 from numpy import testing
 
 from epimysium import postprocessing as pproc
+
+parentdir = os.path.abspath(os.path.dirname(__file__))
+
+def test_filter_emg():
+    dat = np.loadtxt(os.path.join(parentdir, 'emg_raw_and_filtered.txt'))
+    raw = dat[:, 0]
+    filtered_des = dat[:, 1]
+    sampling_rate = 2000
+    filtered = pproc.filter_emg(raw, sampling_rate)
+    testing.assert_allclose(filtered, filtered_des, atol=0.001)
 
 def test_shift_data_to_cycle():
 
@@ -140,6 +152,7 @@ def test_shift_data_to_cycle_for_less_than_full_cycle():
     # TODO
 
 if __name__ == '__main__':
-    import pylab as pl
-    test_shift_data_to_cycle_for_less_than_full_cycle()
-    pl.show()
+    #import pylab as pl
+    #test_shift_data_to_cycle_for_less_than_full_cycle()
+    #pl.show()
+    pass
