@@ -635,6 +635,123 @@ def plot_rra_gait_info(rra_results_dir):
     return fig
 
 
+def plot_so_gait_info(so_results_dir):
+    """Plots residuals and reserves from static optimization results for a
+    model like gait2392. Reserves must be named as 'reserve_<coord-name>'.
+
+    Parameters
+    ----------
+    so_results_dir : str
+        Path to folder containing results from Static Optimization. It must
+        have the following file:
+            - <name>_StaticOptimization_force.sto
+
+    Returns
+    -------
+    fig : pylab.figure
+
+    """
+    for fname in os.listdir(so_results_dir):
+        if fname.endswith('StaticOptimization_force.sto'):
+            fpath = os.path.join(so_results_dir, fname)
+            break
+
+    def plot_thresholds(data, val):
+        pl.plot([data['time'][0], data['time'][-1]], [val, val],
+                c=[0.7, 0.7, 0.7])
+        pl.plot([data['time'][0], data['time'][-1]], [-val, -val],
+                c=[0.7, 0.7, 0.7])
+
+    legend_kwargs = {'loc': 'best', 'prop': {'size': 12}}
+
+    actu = dataman.storage2numpy(fpath, 2)
+
+    fig = pl.figure(figsize=(10, 12))
+    grid_size = (3, 2)
+    pl.subplot2grid(grid_size, (0, 0))
+    pl.title('residual forces')
+    for coln in ['FX', 'FY', 'FZ']:
+        pl.plot(actu['time'], actu[coln], label=coln)
+    pl.axhline(0, c='k')
+    pl.ylabel('force (N)')
+    pl.legend(**legend_kwargs)
+    pl.ylim((-40, 40))
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.grid(axis='y')
+    plot_thresholds(actu, 10)
+    plot_thresholds(actu, 25)
+
+    pl.subplot2grid(grid_size, (0, 1))
+    pl.title('residual moments')
+    for coln in ['MX', 'MY', 'MZ']:
+        pl.plot(actu['time'], actu[coln], label=coln)
+    pl.axhline(0, c='k')
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+    pl.ylim((-40, 40))
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.grid(axis='y')
+    plot_thresholds(actu, 30)
+
+    pl.subplot2grid(grid_size, (1, 0))
+    pl.title('left lower limb reserves')
+    for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
+        pl.plot(actu['time'], actu['reserve_%s' % coln],
+                label=coln.split('_')[0])
+    pl.axhline(0, c='k')
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.ylim((-25, 25))
+    pl.grid(axis='y')
+    plot_thresholds(actu, 10)
+
+    pl.subplot2grid(grid_size, (1, 1))
+    pl.title('right lower limb reserves')
+    for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
+        pl.plot(actu['time'], actu['reserve_%s' % coln],
+                label=coln.split('_')[0])
+    pl.axhline(0, c='k')
+    pl.ylabel('torque (N-m)')
+    pl.legend(**legend_kwargs)
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.ylim((-25, 25))
+    pl.grid(axis='y')
+    plot_thresholds(actu, 10)
+
+    pl.subplot2grid(grid_size, (2, 0))
+    pl.title('lumbar rotations reserves')
+    for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
+        pl.plot(actu['time'], actu['reserve_%s' % coln],
+                label=coln.split('_')[-1])
+    pl.axhline(0, c='k')
+    pl.ylabel('moment (N-m)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.ylim((-25, 25))
+    pl.grid(axis='y')
+    plot_thresholds(actu, 10)
+
+    pl.subplot2grid(grid_size, (2, 1))
+    pl.title('hip reserves')
+    labels = ['rot_r',' rot_l', 'add_r',' add_l']
+    for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
+        'hip_adduction_r', 'hip_adduction_l']):
+        pl.plot(actu['time'], actu['reserve_%s' % coln], label=labels[i])
+    pl.axhline(0, c='k')
+    pl.ylabel('moment (N-m)')
+    pl.xlabel('time (s)')
+    pl.legend(**legend_kwargs)
+    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.ylim((-25, 25))
+    pl.grid(axis='y')
+    plot_thresholds(actu, 10)
+
+    pl.tight_layout()
+    return fig
+
+
 def plot_cmc_gait_info(cmc_results_dir):
     """
 

@@ -112,8 +112,8 @@ class ANCFile(object):
     def __getitem__(self, name):
         """See `column()`.
 
-
         """
+        return self.column(name)
 
     def column(self, name):
         """
@@ -346,7 +346,7 @@ def ndarray2storage(ndarray, storage_fpath, name=None, in_degrees=False):
 
     f.close()
 
-def storage2numpy(storage_file):
+def storage2numpy(storage_file, excess_header_entries=0):
     """Returns the data from a storage file in a numpy format. Skips all lines
     up to and including the line that says 'endheader'.
 
@@ -359,6 +359,11 @@ def storage2numpy(storage_file):
     -------
     data : np.ndarry (or numpy structure array or something?)
         Contains all columns from the storage file, indexable by column name.
+    excess_header_entries : int, optional
+        If the header row has more names in it than there are data columns.
+        We'll ignore this many header row entries from the end of the header
+        row. This argument allows for a hacky fix to an issue that arises from
+        Static Optimization '.sto' outputs.
 
     Examples
     --------
@@ -371,15 +376,25 @@ def storage2numpy(storage_file):
     # What's the line number of the line containing 'endheader'?
     f = open(storage_file, 'r')
 
+    header_line = False
     for i, line in enumerate(f):
+        if header_line:
+            column_names = line.split()
+            break
         if line.count('endheader') != 0:
             line_number_of_line_containing_endheader = i + 1
-            break
+            header_line = True
     f.close()
 
     # With this information, go get the data.
-    data = np.genfromtxt(storage_file, names=True,
-            skip_header=line_number_of_line_containing_endheader)
+    if excess_header_entries == 0:
+        names = True
+        skip_header = line_number_of_line_containing_endheader
+    else:
+        names = column_names[:-excess_header_entries]
+        skip_header = line_number_of_line_containing_endheader + 1
+    data = np.genfromtxt(storage_file, names=names,
+            skip_header=skip_header)
 
     return data
 
@@ -1168,11 +1183,15 @@ def _populate_table(h5file, group, table_name, filepath, replacements={}):
                     regex = re.compile(find)
                     title_row[i] = regex.sub(rep, title_row[i])
 
+            # TODO Hack to deal with bug in static optimization.
+            if 'Right_GRF' in title_row: title_row.remove('Right_GRF')
+            if 'Left_GRF' in title_row: title_row.remove('Left_GRF')
+
             take_header = False
 
             # Grab table column names.
             table_cols = dict()
-            for col in title_row: 
+            for col in title_row:
                 # Checking if the column is empty. This is a
                 # once-in-a-blue-moon bug fix as a result of inconsistency in
                 # Hamner's files. See CMC results for subject 2, speed 2 m/s,
