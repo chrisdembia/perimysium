@@ -105,6 +105,30 @@ def storage2piecewise_linear_function(sto, column_name, scale_factor=None):
     return osm.PiecewiseLinearFunction(time.getSize(), time.get(),
             ordinate.get())
 
+twitch_ratios_2392 = {
+            'glut_med1': 0.55, 'glut_med2': 0.55, 'glut_med3': 0.55,
+            'glut_min1': 0.55, 'glut_min2': 0.55, 'glut_min3': 0.55,
+            'semimem': 0.4925, 'semiten': 0.425,
+            'bifemlh': 0.5425, 'bifemsh': 0.529,
+            'add_mag1': 0.552, 'add_mag2': 0.552, 'add_mag3': 0.552,
+            'glut_max1': 0.55, 'glut_max2': 0.55, 'glut_max3': 0.55,
+            'iliacus': 0.5, 'psoas': 0.5, 'rect_fem': 0.3865,
+            'vas_med': 0.503, 'vas_int': 0.543, 'vas_lat': 0.455,
+            'med_gas': 0.566, 'lat_gas': 0.507, 'soleus': 0.803,
+            'tib_post': 0.6, 'flex_dig': 0.6, 'flex_hal': 0.6, 'tib_ant': 0.7,
+            'per_brev': 0.6, 'per_long': 0.6, 'per_tert': 0.75,
+            'ext_dig': 0.75, 'ext_hal': 0.75,
+            'ercspn': 0.6, 'intobl': 0.56, 'extobl': 0.58,
+            'sar': -1, 'add_long': -1, 'add_brev': -1,
+            'tfl': -1, 'pect': -1, 'grac': -1,
+            'quad_fem': -1, 'gem': -1, 'peri': -1}
+
+twitch_ratios_1018 = {
+            'hamstrings': 0.49, 'bifemsh': 0.53, 'glut_max': 0.55,
+            'iliopsoas': 0.50, 'rect_fem': 0.39, 'vasti': 0.50,
+            'gastroc': 0.54, 'soleus': 0.80,
+            'tib_ant': 0.70}
+
 def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
     """Adds Umberger2010MuscleMetabolicsProbes to an OpenSim model. Adds a probe
     for each muscle, as well as a whole-body probe that returns cumulative
@@ -125,29 +149,9 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
     # Twitch ratios
     # -------------
     if twitch_ratio_set == 'gait2392':
-        twitchRatios = {
-            'glut_med1': 0.55, 'glut_med2': 0.55, 'glut_med3': 0.55,
-            'glut_min1': 0.55, 'glut_min2': 0.55, 'glut_min3': 0.55,
-            'semimem': 0.4925, 'semiten': 0.425,
-            'bifemlh': 0.5425, 'bifemsh': 0.529,
-            'add_mag1': 0.552, 'add_mag2': 0.552, 'add_mag3': 0.552,
-            'glut_max1': 0.55, 'glut_max2': 0.55, 'glut_max3': 0.55,
-            'iliacus': 0.5, 'psoas': 0.5, 'rect_fem': 0.3865,
-            'vas_med': 0.503, 'vas_int': 0.543, 'vas_lat': 0.455,
-            'med_gas': 0.566, 'lat_gas': 0.507, 'soleus': 0.803,
-            'tib_post': 0.6, 'flex_dig': 0.6, 'flex_hal': 0.6, 'tib_ant': 0.7,
-            'per_brev': 0.6, 'per_long': 0.6, 'per_tert': 0.75,
-            'ext_dig': 0.75, 'ext_hal': 0.75,
-            'ercspn': 0.6, 'intobl': 0.56, 'extobl': 0.58,
-            'sar': -1, 'add_long': -1, 'add_brev': -1,
-            'tfl': -1, 'pect': -1, 'grac': -1,
-            'quad_fem': -1, 'gem': -1, 'peri': -1}
+        twitchRatios = twitch_ratios_2392
     elif twitch_ratio_set == 'gait1018':
-        twitchRatios = {
-            'hamstrings': 0.49, 'bifemsh': 0.53, 'glut_max': 0.55,
-            'iliopsoas': 0.50, 'rect_fem': 0.39, 'vasti': 0.50,
-            'gastroc': 0.54, 'soleus': 0.80,
-            'tib_ant': 0.70}
+        twitchRatios = twitch_ratios_1018
 
     # Parameters used for all probes
     # ------------------------------
@@ -203,6 +207,74 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         wholeBodyProbe.addMuscle(thisMuscle.getName(),
                                  slowTwitchRatio,
                                  -1)
+
+def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392'):
+    """Adds Bhargava2004MuscleMetabolicsProbe's to an OpenSim model. Adds a
+    probe for each muscle, as well as a whole-body probe that returns
+    cumulative energy expended across all muscles in the model. When possible,
+    we use published twitch ratios for the probes. For muscles for which we do
+    not have data, we use a twitch ratio of 0.5. This method doesn't return
+    anything; the model given to the method is simply modified.
+
+    Parameters
+    ----------
+    model : org.opensim.modeling.Model
+        An OpenSim Model that has muscles.
+    twitch_ratio_set : str; 'gait2392' or 'gait1018'
+        The experimental data set to use for the model, depending on the model
+        we are adding probes to.
+
+    """
+    # Twitch ratios.
+    # --------------
+    if twitch_ratio_set == 'gait2392':
+        twitchRatios = twitch_ratios_2392
+    elif twitch_ratio_set == 'gait1018':
+        twitchRatios = twitch_ratios_1018
+
+    # Parameters used for all probes.
+    # -------------------------------
+    activationRateOn = True
+    maintenanceRateOn = True
+    shorteningRateOn = True
+    basalRateOn = True
+    workRateOn = True
+
+    activation_constant_slow_twitch = 40.0
+    activation_constant_fast_twitch = 133.0
+    maintenance_constant_slow_twitch = 74.0
+    maintenance_constant_fast_twitch = 111.0
+
+    defaultTwitchRatio = 0.5
+
+    # Whole-body probe.
+    # -----------------
+    wholeBodyProbe = osm.Bhargava2004MuscleMetabolicsProbe(
+            activationRateOn,
+            maintenanceRateOn,
+            shorteningRateOn,
+            basalRateOn,
+            workRateOn)
+    wholeBodyProbe.setOperation("value")
+    wholeBodyProbe.set_report_total_metabolics_only(False)
+
+    model.addProbe(wholeBodyProbe)
+    wholeBodyProbe.setName("metabolic_power_bhar")
+
+    for iMuscle in range(model.getMuscles().getSize()):
+        thisMuscle = model.getMuscles().get(iMuscle)
+
+        slowTwitchRatio = defaultTwitchRatio
+
+        for key, val in twitchRatios.items():
+            if thisMuscle.getName().startswith(key) and val != -1:
+                slowTwitchRatio = val
+
+        wholeBodyProbe.addMuscle(thisMuscle.getName(), slowTwitchRatio,
+                activation_constant_slow_twitch,
+                activation_constant_fast_twitch,
+                maintenance_constant_slow_twitch,
+                maintenance_constant_fast_twitch)
 
 def enable_probes(model_fpath):
     """Ensures that all probes are enabled (isDisabled is false). Writes over
