@@ -274,7 +274,8 @@ def avg(time, value, init_time=None, final_time=None, interval=None):
     return np.trapz(value[init_idx:final_idx:interval],
             x=time[init_idx:final_idx:interval]) / duration
 
-def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
+def sorted_maxabs(table, init_time=None, final_time=None, exclude=None,
+        include_only=None):
     """Returns sort and argsort for all columns given. The quantity
     bieng sorted is the max absolute value of each column either over all
     times, or over the time interval specified.
@@ -292,9 +293,13 @@ def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
         The upper bound of times at which to check max abs values, in units of
         time (probably seconds).  By default, the last time in the series is
         used.
-    exclude : list of str's, optional
-        The names of columns to exclude from the sorting (e.g.,
+    exclude : str or list of str's, optional
+        If str, it's a regular expression. Otherwise, it's the exact
+        names of columns to exclude from the sorting (e.g.,
         ['umb_val_wholebody']). Automatically excludes 'time' column.
+    include_only : str, optional
+        A regular expression that a column name must match to be included in
+        the output.
 
     Returns
     -------
@@ -306,8 +311,8 @@ def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
         order.
 
     """
-    if exclude != None and not type(exclude) == list:
-        raise Exception("'exclude' must be None or a list.")
+    if exclude != None and not (type(exclude) == list or type(exclude) == str):
+        raise Exception("'exclude' must be None, a str, or a list.")
 
     time = table.cols.time
     if init_time == None:
@@ -321,8 +326,24 @@ def sorted_maxabs(table, init_time=None, final_time=None, exclude=None):
 
     maxs = dict()
 
+    def do_exclude(coln):
+        if coln == 'time':
+            return True
+        elif exclude == None:
+            return False
+        elif type(exclude) == list:
+            return coln in exclude
+        elif type(exclude) == str:
+            return re.search(exclude, coln)
+
+    def do_include(coln):
+        if include_only == None:
+            return True
+        else:
+            return re.search(include_only, coln)
+
     for coln in table.colnames:
-        if coln != 'time' and (exclude == None or not coln in exclude):
+        if do_include(coln) and not do_exclude(coln):
             maxs[coln] = np.max(np.abs(table.col(coln)[init_idx:final_idx]))
 
     sorted_vals = np.sort(maxs.values())
