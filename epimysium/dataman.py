@@ -115,6 +115,12 @@ class ANCFile(object):
         """
         return self.column(name)
 
+    def __setitem__(self, name, val):
+        """self.data[name] = val
+
+        """
+        self.data[name] = val
+
     def column(self, name):
         """
         Parameters
