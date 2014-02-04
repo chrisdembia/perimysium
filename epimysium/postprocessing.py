@@ -2705,6 +2705,7 @@ class GaitScrutinyReport:
                     "'primary_leg' is %s; must be 'right' or 'left'." % (
                         series['primary_leg']))
 
+            if 'color' in kwargs: kwargs.pop('color')
             plot_for_a_leg(table, series, coordinate_name, opposite_leg,
                     'opposite_strike', color=(0.5, 0.5, 0.5), **kwargs)
 
