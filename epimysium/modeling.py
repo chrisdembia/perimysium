@@ -30,7 +30,21 @@
 # that the OpenSim Jython wrapping is on the Jython CLASSPATH. When an OpenSim
 # Python wrapping is available, we can use CPython instead.
 
-import org.opensim.modeling as osm
+import platform
+
+def running_in_jython():
+    return platform.system() == 'Java'
+
+if running_in_jython():
+    import org.opensim.modeling as osm
+else:
+    import opensim as osm
+
+def printobj(obj, fname):
+    if running_in_jython():
+        exec('obj.print(fname)')
+    else:
+        obj.printToXML(fname)
 
 def control_set_from_storage_files(sto_list):
     """
@@ -129,38 +143,42 @@ twitch_ratios_1018 = {
             'gastroc': 0.54, 'soleus': 0.80,
             'tib_ant': 0.70}
 
-def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
-    """Adds Umberger2010MuscleMetabolicsProbes to an OpenSim model. Adds a probe
-    for each muscle, as well as a whole-body probe that returns cumulative
-    energy expended across all muscles in the model. When possible, we use
-    published twitch ratios for the probes. For muscles for which we do not
-    have data, we use a twitch ratio of 0.5. This method doesn't return
+def add_metabolics_probes(model, twitch_ratio_set='gait2392',
+        activationMaintenanceRateOn=True,
+        shorteningRateOn=True,
+        basalRateOn=False,
+        mechanicalWorkRateOn=True):
+    """Adds Umberger2010MuscleMetabolicsProbes to an OpenSim model. Adds a
+    probe for each muscle, as well as a whole-body probe that returns
+    cumulative energy expended across all muscles in the model. When possible,
+    we use published twitch ratios for the probes. For muscles for which we do
+    not have data, we use a twitch ratio of 0.5. This method doesn't return
     anything; the model given to the method is simply modified.
 
     Parameters
     ----------
     model : org.opensim.modeling.Model
         An OpenSim Model that has muscles.
-    twitch_ratio_set : str; 'gait2392' or 'gait1018'
+    twitch_ratio_set : float or str ('gait2392' or 'gait1018')
         The experimental data set to use for the model, depending on the model
-        we are adding probes to.
+        we are adding probes to. If a float, use that constant value for all
+        muscles.
+    activationMaintenanceRateOn : bool, optional
+    shorteningRateOn : bool, optional
+    basalRateOn : bool, optional
+    mechanicalWorkRateOn : bool, optional
 
     """
     # Twitch ratios
     # -------------
-    if twitch_ratio_set == 'gait2392':
+    if type(twitch_ratio_set) == float:
+        twitchRatios = twitch_ratio_set
+    elif twitch_ratio_set == 'gait2392':
         twitchRatios = twitch_ratios_2392
     elif twitch_ratio_set == 'gait1018':
         twitchRatios = twitch_ratios_1018
-
-    # Parameters used for all probes
-    # ------------------------------
-    # The following booleans are constructor arguments for the Umberger probe.
-    # These settings are used for all probes.
-    activationMaintenanceRateOn = True
-    shorteningRateOn = True
-    basalRateOn = False
-    mechanicalWorkRateOn = True
+    else:
+        raise Exception("Invalid value for `twitch_ratio_set`.")
 
     # The mass of each muscle will be calculated using data from the model:
     #   muscleMass = (maxIsometricForce / sigma) * rho * optimalFiberLength
@@ -197,18 +215,26 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392'):
         slowTwitchRatio = defaultTwitchRatio
 
         # Set the slow-twitch ratio to the physiological value, if it is known.
-        for key, val in twitchRatios.items():
-            if thisMuscle.getName().startswith(key) and val != -1:
-                slowTwitchRatio = val
+        if type(twitch_ratio_set) == float:
+            slowTwitchRatio = twitchRatios
+        else:
+            for key, val in twitchRatios.items():
+                if thisMuscle.getName().startswith(key) and val != -1:
+                    slowTwitchRatio = val
 
         # Add this muscle to the whole-body probe. The arguments are muscle
         # name, slow-twitch ratio, and muscle mass. Note that the muscle mass
         # is ignored unless we set useProvidedMass to True.
         wholeBodyProbe.addMuscle(thisMuscle.getName(),
-                                 slowTwitchRatio,
-                                 -1)
+                                 slowTwitchRatio)
 
-def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392'):
+def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
+        activationRateOn=True,
+        maintenanceRateOn=True,
+        shorteningRateOn=True,
+        basalRateOn=False,
+        workRateOn=True,
+        ):
     """Adds Bhargava2004MuscleMetabolicsProbe's to an OpenSim model. Adds a
     probe for each muscle, as well as a whole-body probe that returns
     cumulative energy expended across all muscles in the model. When possible,
@@ -220,26 +246,25 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392'):
     ----------
     model : org.opensim.modeling.Model
         An OpenSim Model that has muscles.
-    twitch_ratio_set : str; 'gait2392' or 'gait1018'
+    twitch_ratio_set : float or str ('gait2392' or 'gait1018')
         The experimental data set to use for the model, depending on the model
-        we are adding probes to.
+        we are adding probes to. If a float, use that constant value for all
+        muscles.
 
     """
-    # Twitch ratios.
-    # --------------
-    if twitch_ratio_set == 'gait2392':
+    # Twitch ratios
+    # -------------
+    if type(twitch_ratio_set) == float:
+        twitchRatios = twitch_ratio_set
+    elif twitch_ratio_set == 'gait2392':
         twitchRatios = twitch_ratios_2392
     elif twitch_ratio_set == 'gait1018':
         twitchRatios = twitch_ratios_1018
+    else:
+        raise Exception("Invalid value for `twitch_ratio_set`.")
 
     # Parameters used for all probes.
     # -------------------------------
-    activationRateOn = True
-    maintenanceRateOn = True
-    shorteningRateOn = True
-    basalRateOn = True
-    workRateOn = True
-
     activation_constant_slow_twitch = 40.0
     activation_constant_fast_twitch = 133.0
     maintenance_constant_slow_twitch = 74.0
@@ -266,9 +291,13 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392'):
 
         slowTwitchRatio = defaultTwitchRatio
 
-        for key, val in twitchRatios.items():
-            if thisMuscle.getName().startswith(key) and val != -1:
-                slowTwitchRatio = val
+        # Set the slow-twitch ratio to the physiological value, if it is known.
+        if type(twitch_ratio_set) == float:
+            slowTwitchRatio = twitchRatios
+        else:
+            for key, val in twitchRatios.items():
+                if thisMuscle.getName().startswith(key) and val != -1:
+                    slowTwitchRatio = val
 
         wholeBodyProbe.addMuscle(thisMuscle.getName(), slowTwitchRatio,
                 activation_constant_slow_twitch,
@@ -290,7 +319,7 @@ def enable_probes(model_fpath):
     n_probes = model.getProbeSet().getSize()
     for i_probe in range(n_probes):
         model.updProbeSet().get(i_probe).setDisabled(False)
-    model.print(model_fpath)
+    printobj(model, model_fpath)
 
 def strengthen_muscles(model_fpath, new_model_fpath, scale_factor):
     """Scales all muscles' maximum isometric force by `scale_factor`.
@@ -309,7 +338,7 @@ def strengthen_muscles(model_fpath, new_model_fpath, scale_factor):
     for i_m in range(m.getMuscles().getSize()):
         m.updMuscles().get(i_m).setMaxIsometricForce(
                 m.getMuscles().get(i_m).getMaxIsometricForce() * scale_factor)
-    m.print(new_model_fpath)
+    printobj(m, new_model_fpath)
 
 
 def set_model_state_from_storage(model, storage, time, state=None):
