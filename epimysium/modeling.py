@@ -46,6 +46,67 @@ def printobj(obj, fname):
     else:
         obj.printToXML(fname)
 
+def replace_thelen_muscles_with_millardequilibrium_muscles(model):
+    """Edits the given model:
+
+    1. Removes all Thelen muscles.
+    2. Replaces them with Millard equilibrium muscles.
+
+    """
+    # 1) Loop through all the forces in the model. Copy them over to a new
+    # ForceSet, unless it's a Thelen muscle. If it's a Thelen muscle, create a
+    # similar Millard muscle.
+    fset = osm.ForceSet()
+    for i_force in range(model.getForceSet().getSize()):
+        force = model.getForceSet().get(i_force)
+        old = osm.Thelen2003Muscle.safeDownCast(force)
+
+        # If not a Thelen muscle, just clone it.
+        if not old:
+
+            fset.cloneAndAppend(force)
+
+        else:
+
+            new = osm.Millard2012EquilibriumMuscle()
+    
+            new.setName(old.getName())
+    
+            # GeometryPath.
+            # --------------
+            # TODO geometry path wrap, visible object, ...
+            old_geopath = old.getGeometryPath()
+            new_geopath = new.updGeometryPath()
+            for i_pt in range(old_geopath.getPathPointSet().getSize()):
+                old_pt = old_geopath.getPathPointSet().get(i_pt)
+                new_geopath.updPathPointSet().cloneAndAppend(old_pt)
+    
+            # Parameters.
+            # -----------
+            def transfer(new, old, name):
+                exec('new.set_%s(old.get_%s())' % (name, name))
+    
+            transfer(new, old, 'max_isometric_force')
+            transfer(new, old, 'optimal_fiber_length')
+            transfer(new, old, 'tendon_slack_length')
+            transfer(new, old, 'pennation_angle_at_optimal')
+            transfer(new, old, 'max_contraction_velocity')
+            transfer(new, old, 'activation_time_constant')
+            transfer(new, old, 'deactivation_time_constant')
+    
+            transfer(new, old, 'default_activation')
+            transfer(new, old, 'default_fiber_length')
+
+            fset.cloneAndAppend(new)
+
+    # 2) clearAndDestroy the model's ForceSet().
+    model.updForceSet().clearAndDestroy()
+
+    # 3) Add all forces from the new ForceSet to the model.
+    for i_force in range(fset.getSize()):
+        model.updForceSet().cloneAndAppend(fset.get(i_force))
+
+
 def control_set_from_storage_files(sto_list):
     """
     Parameters
