@@ -1113,8 +1113,9 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         # Update the attribute for when this group was last updated.
         # This must go after _populate_table, because otherwise the table is
         # not necessarily created yet.
-        getattr(current_group, table_name).attrs.mtime = \
-                os.path.getmtime(filepath)
+        if hasattr(current_group, table_name):
+            getattr(current_group, table_name).attrs.mtime = \
+                    os.path.getmtime(filepath)
 
     return current_group
 
