@@ -204,11 +204,135 @@ twitch_ratios_1018 = {
             'gastroc': 0.54, 'soleus': 0.80,
             'tib_ant': 0.70}
 
+# For the muscles that are divided in OpenSim across multiple paths,
+# divide the published mass evenly between them.
+# Volumes are in cm^3.
+_H2014glut_med_volume = 323.2
+_H2014glut_min_volume = 104.5
+_H2014add_mag_volume = 559.8
+_H2014glut_max_volume = 849.0
+_H2014small_ext_rotators = 16.1
+_H2014extensors_volume = 102.3
+_H2014peroneals_volume = 130.8
+_Handsfield2014_muscle_volumes = {
+        'glut_med1_': _H2014glut_med_volume / 3.0,
+        'glut_med2_': _H2014glut_med_volume / 3.0,
+        'glut_med3_': _H2014glut_med_volume / 3.0,
+        'glut_min1_': _H2014glut_min_volume / 3.0,
+        'glut_min2_': _H2014glut_min_volume / 3.0,
+        'glut_min3_': _H2014glut_min_volume / 3.0,
+        'semimem_': 245.4,
+        'semiten_': 186.0,
+        'bifemlh_': 206.5,
+        'bifemsh_': 100.1,
+        'sar_': 163.7,
+        'add_long_': 162.1,
+        'add_brev_': 104.0,
+        'add_mag1_': _H2014add_mag_volume / 3.0,
+        'add_mag2_': _H2014add_mag_volume / 3.0,
+        'add_mag3_': _H2014add_mag_volume / 3.0,
+        'tfl_': 64.9,
+        'pect_': 66.3,
+        'grac_': 104.0,
+        'glut_max1_': _H2014glut_max_volume / 3.0,
+        'glut_max2_': _H2014glut_max_volume / 3.0,
+        'glut_max3_': _H2014glut_max_volume / 3.0,
+        'iliacus_': 176.8,
+        'psoas_': 274.8,
+        'quad_fem_': 32.4,
+        'gem_': _H2014small_ext_rotators,
+        'peri_': 42.8, # piriformis.
+        'rect_fem_': 269.0,
+        'vas_med_': 423.6,
+        'vas_int_': 270.5,
+        'vas_lat_': 830.9,
+        'med_gas_': 257.4,
+        'lat_gas_': 150.0,
+        'soleus_': 438.2,
+        'tib_post_': 104.8,
+        'flex_dig_': 30.0,
+        'flex_hal_': 78.8,
+        'tib_ant_': 135.2,
+        'per_brev_': _H2014peroneals_volume / 2.0,
+        'per_long_': _H2014peroneals_volume / 2.0,
+        'per_tert_': _H2014extensors_volume / 3.0,
+        'ext_dig_': _H2014extensors_volume / 3.0,
+        'ext_hal_': _H2014extensors_volume / 3.0,
+        #'ercspn_': ,
+        #'intobl_': ,
+        #'extobl_': ,
+        }
+
+# In kg.
+Handsfield2014_muscle_masses = dict()
+muscle_density = 0.001056 # kg / cm^3
+for key, val in _Handsfield2014_muscle_volumes.items():
+    Handsfield2014_muscle_masses[key] = muscle_density * val
+
+"""
+_W2009glut_max_mass = 547.2
+_W2009glut_med_mass = 273.5
+_Ward2009_muscle_volumes_grams = {
+        'glut_med1_': _W2009glut_med_mass / 3.0,
+        'glut_med2_': _W2009glut_med_mass / 3.0,
+        'glut_med3_': _W2009glut_med_mass / 3.0,
+        'glut_min1_': _W2009glut_,
+        'glut_min2_':,
+        'glut_min3_':,
+        'semimem_':,
+        'semiten_':,
+        'bifemlh_':,
+        'bifemsh_':,
+        'sar_':,
+        'add_long_':,
+        'add_brev_':,
+        'add_mag1_':,
+        'add_mag2_':,
+        'add_mag3_':,
+        'tfl_':,
+        'pect_':,
+        'grac_':,
+        'glut_max1_':,
+        'glut_max2_':,
+        'glut_max3_':,
+        'iliacus_': 113.7,
+        'psoas_': 97.7,
+        'quad_fem_':,
+        'gem_':,
+        'peri_':, # piriformis.
+        'rect_fem_':,
+        'vas_med_':,
+        'vas_int_':,
+        'vas_lat_':,
+        'med_gas_':,
+        'lat_gas_':,
+        'soleus_':,
+        'tib_post_':,
+        'flex_dig_':,
+        'flex_hal_':,
+        'tib_ant_':,
+        'per_brev_':,
+        'per_long_':,
+        'per_tert_':,
+        'ext_dig_':,
+        'ext_hal_':,
+        #'ercspn_': ,
+        #'intobl_': ,
+        #'extobl_': ,
+        }
+
+Ward2009_muscle_volumes = dict()
+for key, val in _Ward2009_muscle_volumes_grams.items():
+    Ward2009_muscle_volumes[key] = 0.001 * val
+"""
+
 def add_metabolics_probes(model, twitch_ratio_set='gait2392',
         activationMaintenanceRateOn=True,
         shorteningRateOn=True,
         basalRateOn=False,
-        mechanicalWorkRateOn=True):
+        mechanicalWorkRateOn=True,
+        muscle_masses=None,
+        exclude=[]):
     """Adds Umberger2010MuscleMetabolicsProbes to an OpenSim model. Adds a
     probe for each muscle, as well as a whole-body probe that returns
     cumulative energy expended across all muscles in the model. When possible,
@@ -228,6 +352,15 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
     shorteningRateOn : bool, optional
     basalRateOn : bool, optional
     mechanicalWorkRateOn : bool, optional
+    muscle_masses : str, or dict; optional
+        * str: 'Handsfield2014' or 'Ward2009' to use lower body masses from the
+          respective paper. NOTE: this set of muscle masses does NOT contain
+          ercspn, intobl, or extobl masses. Consider excluding those muscles.
+        * dict: For muscles in this dict, use the given value as the muscle's
+          mass. If the muscle is not specified in this dict, compute the
+          muscle's mass from the model's muscle properties.
+    exclude : list of str's, optional
+        List of muscle names to exclude.
 
     """
     # Twitch ratios
@@ -240,6 +373,17 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
         twitchRatios = twitch_ratios_1018
     else:
         raise Exception("Invalid value for `twitch_ratio_set`.")
+
+    # Muscle masses
+    # -------------
+    if muscle_masses:
+        if muscle_masses == 'Handsfield2014':
+            muscle_masses = Handsfield2014_muscle_masses
+        else:
+            raise Exception("Unexpected muscle_masses {}.".format(
+                muscle_masses))
+    else:
+        muscle_masses = dict()
 
     # The mass of each muscle will be calculated using data from the model:
     #   muscleMass = (maxIsometricForce / sigma) * rho * optimalFiberLength
@@ -271,23 +415,33 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
     for iMuscle in range(model.getMuscles().getSize()):
         thisMuscle = model.getMuscles().get(iMuscle)
 
-        # Get the slow-twitch ratio from the data we read earlier. Start with
-        # the default value.
-        slowTwitchRatio = defaultTwitchRatio
+        if not (thisMuscle.getName() in exclude):
 
-        # Set the slow-twitch ratio to the physiological value, if it is known.
-        if type(twitch_ratio_set) == float:
-            slowTwitchRatio = twitchRatios
-        else:
-            for key, val in twitchRatios.items():
-                if thisMuscle.getName().startswith(key) and val != -1:
-                    slowTwitchRatio = val
+            # Get the slow-twitch ratio from the data we read earlier. Start
+            # with the default value.
+            slowTwitchRatio = defaultTwitchRatio
+    
+            # Set the slow-twitch ratio to the physiological value, if it is
+            # known.
+            if type(twitch_ratio_set) == float:
+                slowTwitchRatio = twitchRatios
+            else:
+                for key, val in twitchRatios.items():
+                    if thisMuscle.getName().startswith(key) and val != -1:
+                        slowTwitchRatio = val
+    
+            # Add this muscle to the whole-body probe. The arguments are muscle
+            # name, slow-twitch ratio, and muscle mass. Note that the muscle
+            # mass is ignored unless we set useProvidedMass to True.
+            wholeBodyProbe.addMuscle(thisMuscle.getName(),
+                                     slowTwitchRatio)
+    
+            # If we are given a muscle mass, use it in the probe.
+            for key, val in muscle_masses.items():
+                if thisMuscle.getName().startswith(key):
+                    wholeBodyProbe.useProvidedMass(thisMuscle.getName(),
+                            val)
 
-        # Add this muscle to the whole-body probe. The arguments are muscle
-        # name, slow-twitch ratio, and muscle mass. Note that the muscle mass
-        # is ignored unless we set useProvidedMass to True.
-        wholeBodyProbe.addMuscle(thisMuscle.getName(),
-                                 slowTwitchRatio)
 
 def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
         activationRateOn=True,
@@ -295,6 +449,8 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
         shorteningRateOn=True,
         basalRateOn=False,
         workRateOn=True,
+        muscle_masses=None,
+        exclude=[],
         ):
     """Adds Bhargava2004MuscleMetabolicsProbe's to an OpenSim model. Adds a
     probe for each muscle, as well as a whole-body probe that returns
@@ -311,6 +467,20 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
         The experimental data set to use for the model, depending on the model
         we are adding probes to. If a float, use that constant value for all
         muscles.
+    activationRateOn : bool, optional
+    maintenanceRateOn : bool, optional
+    shorteningRateOn : bool, optional
+    basalRateOn : bool, optional
+    workRateOn : bool, optional
+    muscle_masses : str, or dict; optional
+        * str: 'Handsfield2014' or 'Ward2009' to use lower body masses from the
+          respective paper. NOTE: this set of muscle masses does NOT contain
+          ercspn, intobl, or extobl masses. Consider excluding those muscles.
+        * dict: For muscles in this dict, use the given value as the muscle's
+          mass. If the muscle is not specified in this dict, compute the
+          muscle's mass from the model's muscle properties.
+    exclude : list of str's, optional
+        List of muscle names to exclude.
 
     """
     # Twitch ratios
@@ -323,6 +493,17 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
         twitchRatios = twitch_ratios_1018
     else:
         raise Exception("Invalid value for `twitch_ratio_set`.")
+
+    # Muscle masses
+    # -------------
+    if muscle_masses:
+        if muscle_masses == 'Handsfield2014':
+            muscle_masses = Handsfield2014_muscle_masses
+        else:
+            raise Exception("Unexpected muscle_masses {}.".format(
+                muscle_masses))
+    else:
+        muscle_masses = dict()
 
     # Parameters used for all probes.
     # -------------------------------
@@ -350,21 +531,30 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
     for iMuscle in range(model.getMuscles().getSize()):
         thisMuscle = model.getMuscles().get(iMuscle)
 
-        slowTwitchRatio = defaultTwitchRatio
+        if not (thisMuscle.getName() in exclude):
 
-        # Set the slow-twitch ratio to the physiological value, if it is known.
-        if type(twitch_ratio_set) == float:
-            slowTwitchRatio = twitchRatios
-        else:
-            for key, val in twitchRatios.items():
-                if thisMuscle.getName().startswith(key) and val != -1:
-                    slowTwitchRatio = val
-
-        wholeBodyProbe.addMuscle(thisMuscle.getName(), slowTwitchRatio,
-                activation_constant_slow_twitch,
-                activation_constant_fast_twitch,
-                maintenance_constant_slow_twitch,
-                maintenance_constant_fast_twitch)
+            slowTwitchRatio = defaultTwitchRatio
+    
+            # Set the slow-twitch ratio to the physiological value, if it is
+            # known.
+            if type(twitch_ratio_set) == float:
+                slowTwitchRatio = twitchRatios
+            else:
+                for key, val in twitchRatios.items():
+                    if thisMuscle.getName().startswith(key) and val != -1:
+                        slowTwitchRatio = val
+    
+            wholeBodyProbe.addMuscle(thisMuscle.getName(), slowTwitchRatio,
+                    activation_constant_slow_twitch,
+                    activation_constant_fast_twitch,
+                    maintenance_constant_slow_twitch,
+                    maintenance_constant_fast_twitch)
+    
+            # If we are given a muscle mass, use it in the probe.
+            for key, val in muscle_masses.items():
+                if thisMuscle.getName().startswith(key):
+                    wholeBodyProbe.useProvidedMass(thisMuscle.getName(),
+                            val)
 
 def enable_probes(model_fpath):
     """Ensures that all probes are enabled (isDisabled is false). Writes over
