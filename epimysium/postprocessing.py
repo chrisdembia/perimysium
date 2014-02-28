@@ -695,7 +695,7 @@ def plot_so_gait_info(so_results_dir):
 
     """
     for fname in os.listdir(so_results_dir):
-        if fname.endswith('StaticOptimization_force.sto'):
+        if fname.endswith('_force.sto'):
             fpath = os.path.join(so_results_dir, fname)
             break
 
