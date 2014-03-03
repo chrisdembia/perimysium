@@ -3,7 +3,7 @@ import os
 import numpy as np
 from numpy import testing
 
-from epimysium import postprocessing as pproc
+from perimysium import postprocessing as pproc
 
 parentdir = os.path.abspath(os.path.dirname(__file__))
 

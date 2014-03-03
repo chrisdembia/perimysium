@@ -11,8 +11,8 @@ import numpy as np
 from scipy.optimize import minimize
 from lxml import etree
 
-from epimysium import dataman
-from epimysium import postprocessing as pproc
+from perimysium import dataman
+from perimysium import postprocessing as pproc
 
 
 # So the tasks.xml we save retains comments.

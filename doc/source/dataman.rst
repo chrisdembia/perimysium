@@ -3,7 +3,7 @@
 :mod:`dataman` module
 =====================
 
-.. automodule:: epimysium.dataman
+.. automodule:: perimysium.dataman
     :members:
     :undoc-members:
     :show-inheritance:

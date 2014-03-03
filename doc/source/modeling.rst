@@ -3,7 +3,7 @@
 :mod:`modeling` module
 ======================
 
-.. automodule:: epimysium.modeling
+.. automodule:: perimysium.modeling
     :members:
     :undoc-members:
     :show-inheritance:

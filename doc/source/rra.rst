@@ -3,7 +3,7 @@
 :mod:`rra` module
 =====================
 
-.. automodule:: epimysium.rra
+.. automodule:: perimysium.rra
     :members:
     :undoc-members:
     :show-inheritance:

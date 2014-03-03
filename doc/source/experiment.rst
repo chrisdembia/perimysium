@@ -3,7 +3,7 @@
 :mod:`experiment` module
 ========================
 
-.. automodule:: epimysium.experiment
+.. automodule:: perimysium.experiment
     :members:
     :undoc-members:
     :show-inheritance:

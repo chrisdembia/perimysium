@@ -3,7 +3,7 @@
 :mod:`postprocessing` module
 ============================
 
-.. automodule:: epimysium.postprocessing
+.. automodule:: perimysium.postprocessing
     :members:
     :undoc-members:
     :show-inheritance:

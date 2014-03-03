@@ -1,9 +1,0 @@
-#!/usr/bin/env python
-
-if __name__ == '__main__':
-
-    import sys
-
-    from epimysium.stoplot import start_plotter
-
-    start_plotter(*sys.argv[1:])
