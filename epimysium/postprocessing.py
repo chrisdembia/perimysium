@@ -15,7 +15,7 @@ import pylab as pl
 import tables
 from scipy.signal import butter, filtfilt
 
-from epimysium import dataman
+from perimysium import dataman
 
 def savefigtolog(figname, *args, **kwargs):
     pl.savefig(os.path.join(os.environ['LOGFIGS'], figname), *args, **kwargs)
@@ -1585,7 +1585,7 @@ def plot_activations(sim, muscles=None, interval=10, subplot_width=4,
         stacked in one column (subplot_width is effectively 1).
     shift_data : dict, optional
         To shift data to the gait cycle, provide a dict with the first 3
-        arguments of :py:meth:`epimysium.postprocessing.shift_data_to_cycle`,
+        arguments of :py:meth:`perimysium.postprocessing.shift_data_to_cycle`,
         as a dict, with keys that are the names of those 3 arguments (
         arbitrary_cycle_start_time, arbitrary_cycle_end_time,
         new_cycle_start_time)
@@ -1698,7 +1698,7 @@ def plot_muscle_forces(sim, muscles=None, interval=10, subplot_width=4,
         stacked in one column (subplot_width is effectively 1).
     shift_data : dict, optional
         To shift data to the gait cycle, provide a dict with the first 3
-        arguments of :py:meth:`epimysium.postprocessing.shift_data_to_cycle`,
+        arguments of :py:meth:`perimysium.postprocessing.shift_data_to_cycle`,
         as a dict, with keys that are the names of those 3 arguments (
         arbitrary_cycle_start_time, arbitrary_cycle_end_time,
         new_cycle_start_time). Must be a dict of dicts if sim is a dict.

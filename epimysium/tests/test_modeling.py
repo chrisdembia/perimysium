@@ -2,7 +2,7 @@ import os
 
 import org.opensim.modeling as osm
 
-from epimysium import modeling
+from perimysium import modeling
 
 parentdir = os.path.abspath(os.path.dirname(__file__))
 

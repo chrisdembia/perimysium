@@ -3,7 +3,7 @@ import os
 import numpy as np
 
 from opensim import Model
-from epimysium.simulation import Simulation
+from perimysium.simulation import Simulation
 
 parentdir = os.path.abspath(os.path.dirname(__file__))
 
