@@ -16,31 +16,58 @@ jsonpickle
 json
 """
 
-class Object(object):
-    def __init__(self, name):
-        self._name = name
+import yaml
 
-    @property
-    def name(self):
-        return self._name
+class Object(yaml.YAMLObject):
+    yaml_tag = u'Object'
+
+    def __init__(self, name):
+        self.name = name
+
+#    @classmethod
+#    def to_yaml(cls, dumper, data):
+#        return dumper.represent_mapping(data.yaml_tag, {'name': data.name})
+#
+#    @classmethod
+#    def from_yaml(cls, loader, node):
+#        print 'DEBUGGG'
+#        print dir(node)
+#        print node.value
+#        print dir(node.value)
+#        print node.value[0]
+#        print dir(node.value[0])
+#        print dir(node.value[0][0])
+#        print node.value[0][0]
+#        print node.value[0][0].value
+#        value = loader.construct_scalar(node)
+#        return Object(node.value)
+
+#    def __repr__(self):
+#        return "%s(name=%r)" % (self.__class__.__name__, self.name)
+
+    def save(self, fpath):
+        with open(fpath, 'w') as f:
+            f.write(yaml.dump(self, default_flow_style=False, indent=4))
+
+    @classmethod
+    def load(cls, fpath):
+        with open(fpath) as f:
+            return yaml.load(f.read())
 
 class Study(Object):
     """
     Attributes
     ----------
-    subject : dict
+    subjects : dict
         of Subject's.
 
     """
+
+    yaml_tag = u'!Study'
+
     def __init__(self, name):
         super(Study, self).__init__(name)
-        self.subjects
-
-    def subject(self, key):
-        return self._subjects[key]
-
-    def subject_new(self, key):
-
+        self.subjects = []
 
 class Subject(Object):
     """
@@ -48,11 +75,23 @@ class Subject(Object):
     Attributes
     ----------
     number : int
+    conditions : dict
+        of subconditions.
 
     """
+
+    yaml_tag = u'!Subject'
+
     def __init__(self, number):
         super(Subject, self).__init__('subject%02i' % number)
         self.number = number
+        self.conditions = dict()
+
+    def condition_new(self, cond):
+        self.conditions[cond.name] = cond
+
+    def condition(self, name):
+        return self.conditions[name]
 
 class Condition(Object):
     """A node in the Study tree.
@@ -65,9 +104,19 @@ class Condition(Object):
         of Trial's.
 
     """
+
+    yaml_tag = u'!Condition'
+
     def __init__(self, name):
-        super(Trial, self).__init__(name)
-        pass
+        super(Condition, self).__init__(name)
+        self.conditions = dict()
+        self.trials = []
+
+    def condition_new(self, cond):
+        self.conditions[cond.name] = cond
+
+    def condition(self, name):
+        return self.conditions[name]
 
 class Trial(Object):
     """
@@ -77,23 +126,25 @@ class Trial(Object):
     number : int
 
     """
-    def __init__(self, number, condition):
+
+    yaml_tag = u'!Trial'
+
+    def __init__(self, number):
         super(Trial, self).__init__('trial%02i' % number)
         self.number = number
-        self._condition = condition
 
-class TrackingSimulation(Object):
-    """
-
-    """
-    def __init__(self, name):
-        super(TrackingSimulation, self).__init__(name)
-
-    def average_metabolic_expenditure_rate(self):
-        raise NotImplementedError()
-
-class CMC(Object):
-    """
-    """
-    def __init__(self, trial):
-
+# class TrackingSimulation(Object):
+#     """
+# 
+#     """
+#     def __init__(self, name):
+#         super(TrackingSimulation, self).__init__(name)
+# 
+#     def average_metabolic_expenditure_rate(self):
+#         raise NotImplementedError()
+# 
+# class CMC(Object):
+#     """
+#     """
+#     def __init__(self, trial):
+# 
