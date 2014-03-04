@@ -30,7 +30,14 @@ class Object(yaml.YAMLObject):
 
     def save(self, fpath):
         with open(fpath, 'w') as f:
-            yaml.dump(self, stream=f, default_flow_style=False, indent=4)
+            # YAML will automatically create anchors and aliases for classes it
+            # thinks are the same and used in multiple places. We don't want
+            # that.
+            # http://pyyaml.org/ticket/91
+            Dumper = yaml.SafeDumper
+            Dumper.ignore_aliases = lambda self, data: True
+            yaml.dump(self, stream=f, default_flow_style=False, indent=4,
+                    Dumper=Dumper)
 
     @classmethod
     def load(cls, fpath):
@@ -73,12 +80,13 @@ class Study(Object):
     def to_yaml(cls, dumper, data):
         return dumper.represent_mapping(data.yaml_tag, {
             'name': data.name,
-            'subjects': data.subjects.values(),
+            'subjects': data.subjects,
             })
 
     @classmethod
     def from_yaml(cls, loader, node):
-        study_dict = loader.construct_mapping(node)
+        study_dict = loader.construct_mgpping(node)
+        print study_dict
         study = Study(study_dict['name'])
         for study_node in node.value:
             key = study_node[0].value
@@ -96,8 +104,10 @@ class Study(Object):
 
         #            #print 'hi', v
                 subject_objects = loader.construct_sequence(subject_sequence)
-                for isubj, subj in enumerate(subject_objects):
-                    study.subject_new(subj)
+                print subject_objects
+                print subject_objects[0]
+                #for isubj, subj in enumerate(subject_objects):
+                #    study.subject_new(subj)
 
         #            this_subject_mapping = subject_sequence.value[isubj]
         #            for subject_node in this_subject_mapping.value:
@@ -112,13 +122,6 @@ class Study(Object):
         #        #print value
 
         return study
-
-    def __repr__(self):
-        return '%s(name=%s, subjects=%s)' % (
-                self.__class__.__name__,
-                self.name,
-                {subj.name: repr(subj) for subj in self.subjects},
-                )
 
 class Subject(Object):
     """
@@ -155,13 +158,6 @@ class Subject(Object):
 #    def from_yaml(cls, loader, node):
 #        value = loader.construct_mapping(node)
 #        return Subject(value['number'])
-
-    def __repr__(self):
-        return '%s(number=%i, conditions=%s)' % (
-                self.__class__.__name__,
-                self.number,
-                {cond.name: repr(cond) for cond in self.conditions},
-                )
 
 class Condition(Object):
     """A node in the Study tree.
@@ -207,13 +203,6 @@ class Condition(Object):
 #        value = loader.construct_mapping(node)
 #        return Condition(value['name'])
 
-    def __repr__(self):
-        return '%s(name=%s, conditions=%s, trials=%s)' % (
-                self.__class__.__name__,
-                self.name,
-                {cond.name: repr(cond) for cond in self.conditions},
-                {trial.name: repr(trial) for trial in self.trials},
-                )
 
 class Trial(Object):
     """
@@ -240,9 +229,6 @@ class Trial(Object):
 #    def from_yaml(cls, loader, node):
 #        value = loader.construct_mapping(node)
 #        return Trial(value['number'])
-
-    def __repr__(self):
-        return '%s(number=%i)' % (self.__class__.__name__, self.number)
 
 # class TrackingSimulation(Object):
 #     """
