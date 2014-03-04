@@ -1,20 +1,23 @@
 !Study
 name: walking
 subjects:
-    1: !Subject
+- !Subject
+    conditions:
+    - !Condition
+        conditions: []
+        name: loaded
+        trials: []
+    - !Condition
         conditions:
-            loaded: !Condition
-                conditions: {}
-                trials: []
-            noload: !Condition
-                conditions:
-                    free: !Condition
-                        conditions: {}
-                        trials:
-                        - !Trial
-                            number: 1
-                trials: []
-        number: 1
-    2: !Subject
-        conditions: {}
-        number: 2
+        - !Condition
+            conditions: []
+            name: free
+            trials:
+            - !Trial
+                number: 1
+        name: noload
+        trials: []
+    number: 1
+- !Subject
+    conditions: []
+    number: 2
