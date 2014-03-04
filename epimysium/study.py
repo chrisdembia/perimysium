@@ -50,8 +50,9 @@ class Study(Object):
 
     yaml_tag = u'!Study'
 
-    def __init__(self, name, subjects=dict()):
+    def __init__(self, name, pytable_fpath, subjects=dict()):
         super(Study, self).__init__(name)
+        self.pytable_fpath = pytable_fpath
         self.subjects = subjects
 
     def subject_new(self, subject):
@@ -235,6 +236,12 @@ class Trial(Object):
     def __init__(self, number):
         super(Trial, self).__init__('trial%02i' % number)
         self.number = number
+
+    def specific_metabolic_cost(self):
+        pass
+
+    def average_over_gait_cycle(self, h5_table_path, column_name):
+        pass
 
     @classmethod
     def to_yaml(cls, dumper, data):
