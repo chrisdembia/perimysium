@@ -43,6 +43,27 @@ if sys.version_info[0] == 2 and sys.version_info[1] < 6:
         return os.path.join(*rel_list)
     os.path.relpath = relpath
 
+class GaitLandmarks(object):
+    def __init__(self,
+            primary_leg=None,
+            cycle_start=None,
+            cycle_end=None,
+            left_strike=None,
+            left_toeoff=None,
+            right_strike=None,
+            right_toeoff=None):
+        self.primary_leg  = primary_leg
+        self.cycle_start  = cycle_start
+        self.cycle_end    = cycle_end
+        self.left_strike  = left_strike
+        self.left_toeoff  = left_toeoff
+        self.right_strike = right_strike
+        self.right_toeoff = right_toeoff
+
+    def cycle_duration(self):
+        return self.cycle_end - self.cycle_start
+
+
 class ANCFile(object):
     """A plain-text file format for storing analog data from Motion Analysis
     Realtime. They have a file extension '.anc'. The file extension '.anb' is

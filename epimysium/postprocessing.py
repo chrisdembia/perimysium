@@ -274,6 +274,55 @@ def avg(time, value, init_time=None, final_time=None, interval=None):
     return np.trapz(value[init_idx:final_idx:interval],
             x=time[init_idx:final_idx:interval]) / duration
 
+def avg_over_gait_cycle(time, value, cycle_duration, cycle_start=None,
+        avg_over_half_if_partial_data=True):
+    """Average a quantity over a gait cycle with duration/period
+    `cycle_duration`. The cycle starts at time[0], unless you specify a
+    `cycle_start` time. If `time` does not contain a full gait cycle's worth of
+    data (time[-1] - time[0] < cycle_duration), we only average over half the
+    gait cycle.
+
+    Parameters
+    ----------
+    time : array_like
+    value : array_like
+    cycle_duration : float
+    cycle_start : float, optional
+    avg_over_gait_cycle : bool, optional
+
+    """
+    avail_duration = time[-1] - time[0]
+
+    if cycle_start == None:
+        cycle_start = time[0]
+
+    if avail_duration >= cycle_duration:
+        if cycle_start + cycle_duration > time[-1]:
+            raise Exception('Requested time for integration is unavailable '
+                    'in the data.')
+        return avg(time, value, init_time=cycle_start,
+                final_time=cycle_start + cycle_duration)
+    else:
+        if cycle_start + 0.5 * cycle_duration > time[-1]:
+            raise Exception('Requested time for integration is unavailable '
+                    'in the data.')
+        return avg(time, value, init_time=cycle_start,
+                final_time=cycle_start + 0.5 * cycle_duration)
+
+
+def specific_metabolic_cost(subject_mass,
+        time, value, cycle_duration, cycle_start=None):
+    return 1.0 / subject_mass * avg_over_gait_cycle(time, value,
+            cycle_duration, cycle_start=cycle_start)
+
+def cost_of_transport(subject_mass,
+        forward_speed,
+        time, value, cycle_duration, cycle_start=None,
+        accel_due_to_gravity=9.81):
+    return avg_over_gait_cycle(time, value, cycle_duration,
+            cycle_start=cycle_start) / (
+                    subject_mass * accel_due_to_gravity * forward_speed)
+
 def sorted_maxabs(table, init_time=None, final_time=None, exclude=None,
         include_only=None):
     """Returns sort and argsort for all columns given. The quantity
