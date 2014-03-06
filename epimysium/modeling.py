@@ -332,6 +332,7 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
         basalRateOn=False,
         mechanicalWorkRateOn=True,
         muscle_masses=None,
+        muscle_effort_scaling_factor=None,
         exclude=[]):
     """Adds Umberger2010MuscleMetabolicsProbes to an OpenSim model. Adds a
     probe for each muscle, as well as a whole-body probe that returns
@@ -405,6 +406,9 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
         mechanicalWorkRateOn)
     wholeBodyProbe.setOperation("value")
     wholeBodyProbe.set_report_total_metabolics_only(False);
+    if muscle_effort_scaling_factor:
+        wholeBodyProbe.set_muscle_effort_scaling_factor(
+                muscle_effort_scaling_factor)
 
     # Add the probe to the model and provide a name.
     model.addProbe(wholeBodyProbe)
@@ -449,6 +453,7 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
         shorteningRateOn=True,
         basalRateOn=False,
         workRateOn=True,
+        muscle_effort_scaling_factor=None,
         muscle_masses=None,
         exclude=[],
         ):
@@ -524,6 +529,9 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
             workRateOn)
     wholeBodyProbe.setOperation("value")
     wholeBodyProbe.set_report_total_metabolics_only(False)
+    if muscle_effort_scaling_factor:
+        wholeBodyProbe.set_muscle_effort_scaling_factor(
+                muscle_effort_scaling_factor)
 
     model.addProbe(wholeBodyProbe)
     wholeBodyProbe.setName("metabolic_power_bhar")
