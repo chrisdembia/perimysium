@@ -43,3 +43,11 @@ def test_serialization_load():
 
 if __name__ == '__main__':
     test_serialization_load()
+
+def test_iterate():
+
+    s = Study.load('walking_study_des.yml')
+    for subj in s.subjects:
+        for cond in subj.conditions:
+            for trial in cond.trials:
+                print '%s, %s, %s' % (subj, cond, trial)
