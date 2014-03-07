@@ -1,23 +1,24 @@
 !Study
 name: walking
+pytable_fpath: database.h5
 subjects:
-- !Subject
-    conditions:
-    - !Condition
-        conditions: []
-        name: loaded
-        trials: []
-    - !Condition
+    1: !Subject
         conditions:
-        - !Condition
-            conditions: []
-            name: free
-            trials:
-            - !Trial
-                number: 1
-        name: noload
-        trials: []
-    number: 1
-- !Subject
-    conditions: []
-    number: 2
+            loaded: !Condition
+                conditions: {}
+                name: loaded
+                trials: {}
+            noload: !Condition
+                conditions:
+                    free: !Condition
+                        conditions: {}
+                        name: free
+                        trials:
+                            1: !Trial
+                                number: 1
+                name: noload
+                trials: {}
+        number: 1
+    2: !Subject
+        conditions: {}
+        number: 2

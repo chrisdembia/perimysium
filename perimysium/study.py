@@ -44,10 +44,11 @@ class Object(yaml.YAMLObject):
         with open(fpath, 'w') as f:
             Dumper = yaml.Dumper
             Dumper.ignore_aliases = lambda self, data: True
-            #print yaml.dump(self, default_flow_style=False, indent=4)
-            #yaml.dump(self, stream=f, default_flow_style=False, indent=4)
             yaml.dump(self, stream=f, default_flow_style=False, indent=4,
                     Dumper=Dumper)
+
+    def __str__(self):
+        return self.name
 
 class Study(Object):
     """
@@ -67,6 +68,7 @@ class Study(Object):
 
     def subject_new(self, subject):
         self.subjects[subject.number] = subject
+        # TODO subject.study = self
 
     def subject(self, number):
         return self.subjects[number]
@@ -75,46 +77,24 @@ class Study(Object):
     def to_yaml(cls, dumper, data):
         return dumper.represent_mapping(data.yaml_tag, {
             'name': data.name,
-            'pytables_fpath': data.pytable_fpath,
+            'pytable_fpath': data.pytable_fpath,
             'subjects': data.subjects,
             })
 
-#    @classmethod
-#    def from_yaml(cls, loader, node):
-#        study_dict = loader.construct_mapping(node)
-#        study = Study(study_dict['name'])
-#        #for study_node in node.value:
-#        #    key = study_node[0].value
-#        #    if key == 'subjects':
-#        #        subject_sequence = study_node[1]
-#        #        print 'HELLO'
-#        #        print type(study_node[1])
-#        #        print type(subject_sequence)
-#        #        #for subject_mapping in subject_sequence.value:
-#        #        #    print ''
-#        #        #    print subject_mapping
-#        #        #    #subject = loader.construct_scalar(subject_mapping)
-#        #        #    #print subject
-#        #        #    #study.subject_new(subject)
-#
-#        #            #print 'hi', v
-#        #        subject_objects = loader.construct_sequence(subject_sequence)
-#        #        for isubj, subj in enumerate(subject_objects):
-#        #            study.subject_new(subj)
-#
-#        #            this_subject_mapping = subject_sequence.value[isubj]
-#        #            for subject_node in this_subject_mapping.value:
-#        #                key = subject_node[0].value
-#        #                if key == 'conditions':
-#        #                    cond_sequence = subject_node[1]
-#        #                    cond_objects = loader.construct_sequence(cond_sequence)
-#        #                    for icond, cond in enumerate(cond_objects):
-#        #                        subj.condition_new(cond)
-#
-#        #        #import pdb; pdb.set_trace()
-#        #        #print value
-#
-#        return study
+    @classmethod
+    def from_yaml(cls, loader, node):
+        study_dict = loader.construct_mapping(node)
+        study = Study(study_dict['name'], study_dict['pytable_fpath'])
+        for study_node in node.value:
+            key = study_node[0].value
+            if key == 'subjects':
+                subject_dict_mapping = study_node[1]
+                subject_dict = loader.construct_mapping(subject_dict_mapping)
+                for k, v in subject_dict.items():
+                    study.subject_new(v)
+                    v.study = study
+
+        return study
 
     @classmethod
     def load(cls, fpath):
@@ -146,6 +126,7 @@ class Subject(Object):
         super(Subject, self).__init__('subject%02i' % number)
         self.number = number
         self.conditions = dict()
+        self.study = None
 
     def condition_new(self, cond):
         self.conditions[cond.name] = cond
@@ -156,13 +137,24 @@ class Subject(Object):
     @classmethod
     def to_yaml(cls, dumper, data):
         return dumper.represent_mapping(data.yaml_tag, {
+            'number': data.number,
             'conditions': data.conditions,
             })
 
-#    @classmethod
-#    def from_yaml(cls, loader, node):
-#        value = loader.construct_mapping(node)
-#        return Subject(value['number'])
+    @classmethod
+    def from_yaml(cls, loader, node):
+        subject_dict = loader.construct_mapping(node)
+        subject = Subject(subject_dict['number'])
+        for subject_node in node.value:
+            key = subject_node[0].value
+            if key == 'conditions':
+                condition_dict_mapping = subject_node[1]
+                condition_dict = loader.construct_mapping(
+                        condition_dict_mapping)
+                for k, v in condition_dict.items():
+                    subject.condition_new(v)
+                    v.subject = subject
+        return subject
 
 #    def __repr__(self):
 #        return '%s(number=%i, conditions=%r)' % (
@@ -189,6 +181,8 @@ class Condition(Object):
         super(Condition, self).__init__(name)
         self.conditions = dict()
         self.trials = dict()
+        self.subject = None
+        self.parent = None
 
     def condition_new(self, cond):
         self.conditions[cond.name] = cond
@@ -205,14 +199,31 @@ class Condition(Object):
     @classmethod
     def to_yaml(cls, dumper, data):
         return dumper.represent_mapping(data.yaml_tag, {
+            'name': data.name,
             'conditions': data.conditions,
             'trials': data.trials,
             })
 
-#    @classmethod
-#    def from_yaml(cls, loader, node):
-#        value = loader.construct_mapping(node)
-#        return Condition(value['name'])
+    @classmethod
+    def from_yaml(cls, loader, node):
+        condition_dict = loader.construct_mapping(node)
+        condition = Condition(condition_dict['name'])
+        for condition_node in node.value:
+            key = condition_node[0].value
+            if key == 'conditions':
+                subcond_dict_mapping = condition_node[1]
+                subcond_dict = loader.construct_mapping(subcond_dict_mapping)
+                for k, v in subcond_dict.items():
+                    condition.condition_new(v)
+                    v.parent = condition
+                    v.subject = condition.subject
+            if key == 'trials':
+                trial_dict_mapping = condition_node[1]
+                trial_dict = loader.construct_mapping(trial_dict_mapping)
+                for k, v in trial_dict.items():
+                    condition.trial_new(v)
+                    v.condition = condition
+        return condition
 
 #    def __repr__(self):
 #        if len(self.conditions) > 1:
@@ -240,6 +251,7 @@ class Trial(Object):
     def __init__(self, number):
         super(Trial, self).__init__('trial%02i' % number)
         self.number = number
+        self.condition = None
 
     def specific_metabolic_cost(self):
         pass
@@ -253,10 +265,10 @@ class Trial(Object):
             'number': data.number,
             })
 
-#    @classmethod
-#    def from_yaml(cls, loader, node):
-#        value = loader.construct_mapping(node)
-#        return Trial(value['number'])
+    @classmethod
+    def from_yaml(cls, loader, node):
+        trial_dict = loader.construct_mapping(node)
+        return Trial(trial_dict['number'])
 
 #    def __repr__(self):
 #        return '%s(number=%i)' % (self.__class__.__name__, self.number)

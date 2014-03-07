@@ -32,6 +32,8 @@ def test_serialization_load():
     outfpath_des = fpath('walking_study_des.yml')
 
     s = Study.load(outfpath_des)
+    print dir(s)
+    print s.subjects
     s.save(outfpath)
 
     assert_equal(open(outfpath).read(), open(outfpath_des).read())
@@ -46,8 +48,13 @@ if __name__ == '__main__':
 
 def test_iterate():
 
-    s = Study.load('walking_study_des.yml')
-    for subj in s.subjects:
-        for cond in subj.conditions:
-            for trial in cond.trials:
-                print '%s, %s, %s' % (subj, cond, trial)
+    outp = ''
+
+    s = Study.load(fpath('walking_study_des.yml'))
+    for subj in s.subjects.values():
+        for conda in subj.conditions.values():
+            for condb in conda.conditions.values():
+                for trial in condb.trials.values():
+                    outp += '%s, %s, %s, %s' % (subj, conda, condb, trial)
+
+    assert_equal(outp, 'subject01, noload, free, trial01')
