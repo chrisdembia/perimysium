@@ -25,29 +25,29 @@ class Object(yaml.YAMLObject):
     def __init__(self, name):
         self.name = name
 
-#    @classmethod
-#    def to_yaml(cls, dumper, data):
-#        return dumper.represent_mapping(data.yaml_tag, {
-#            'name': data.name,
-#            })
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_mapping(data.yaml_tag, {
+            'name': data.name,
+            })
 #
 #    @classmethod
 #    def from_yaml(cls, loader, node):
 #        value = loader.construct_mapping(node)
 #        return Object(node.value)
 
-    def __repr__(self):
-        return '%s(name=%r)' % (self.__class__.__name__, self.name)
+#    def __repr__(self):
+#        return '%s(name=%r)' % (self.__class__.__name__, self.name)
 
     def save(self, fpath):
         # TODO move to Study.
         with open(fpath, 'w') as f:
-            #Dumper = yaml.Dumper
-            #Dumper.ignore_aliases = lambda self, data: True
+            Dumper = yaml.Dumper
+            Dumper.ignore_aliases = lambda self, data: True
             #print yaml.dump(self, default_flow_style=False, indent=4)
-            yaml.dump(self, stream=f, default_flow_style=False, indent=4)
-            #yaml.dump(self, stream=f, default_flow_style=False, indent=4,
-            #        Dumper=Dumper)
+            #yaml.dump(self, stream=f, default_flow_style=False, indent=4)
+            yaml.dump(self, stream=f, default_flow_style=False, indent=4,
+                    Dumper=Dumper)
 
 class Study(Object):
     """
@@ -60,10 +60,10 @@ class Study(Object):
 
     yaml_tag = u'!Study'
 
-    def __init__(self, name, pytable_fpath, subjects=dict()):
+    def __init__(self, name, pytable_fpath):
         super(Study, self).__init__(name)
         self.pytable_fpath = pytable_fpath
-        self.subjects = subjects
+        self.subjects = dict()
 
     def subject_new(self, subject):
         self.subjects[subject.number] = subject
@@ -71,12 +71,13 @@ class Study(Object):
     def subject(self, number):
         return self.subjects[number]
 
-#    @classmethod
-#    def to_yaml(cls, dumper, data):
-#        return dumper.represent_mapping(data.yaml_tag, {
-#            'name': data.name,
-#            'subjects': data.subjects.values(),
-#            })
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_mapping(data.yaml_tag, {
+            'name': data.name,
+            'pytables_fpath': data.pytable_fpath,
+            'subjects': data.subjects,
+            })
 
 #    @classmethod
 #    def from_yaml(cls, loader, node):
@@ -120,13 +121,13 @@ class Study(Object):
         with open(fpath) as f:
             return yaml.load(f.read())
 
-    def __repr__(self):
-        print self.subjects
-        return '%s(name=%r, pytable_fpath=%r, subjects=%r)' % (
-                self.__class__.__name__,
-                self.name,
-                self.pytable_fpath,
-                self.subjects)
+#    def __repr__(self):
+#        print self.subjects
+#        return '%s(name=%r, pytable_fpath=%r, subjects=%r)' % (
+#                self.__class__.__name__,
+#                self.name,
+#                self.pytable_fpath,
+#                self.subjects)
 
 class Subject(Object):
     """
@@ -141,10 +142,10 @@ class Subject(Object):
 
     yaml_tag = u'!Subject'
 
-    def __init__(self, number, conditions=dict()):
+    def __init__(self, number):
         super(Subject, self).__init__('subject%02i' % number)
         self.number = number
-        self.conditions = conditions
+        self.conditions = dict()
 
     def condition_new(self, cond):
         self.conditions[cond.name] = cond
@@ -152,24 +153,23 @@ class Subject(Object):
     def condition(self, name):
         return self.conditions[name]
 
-#    @classmethod
-#    def to_yaml(cls, dumper, data):
-#        return dumper.represent_mapping(data.yaml_tag, {
-#            'number': data.number,
-#            'conditions': data.conditions.values(),
-#            })
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_mapping(data.yaml_tag, {
+            'conditions': data.conditions,
+            })
 
 #    @classmethod
 #    def from_yaml(cls, loader, node):
 #        value = loader.construct_mapping(node)
 #        return Subject(value['number'])
 
-    def __repr__(self):
-        return '%s(number=%i, conditions=%r)' % (
-                self.__class__.__name__,
-                self.number,
-                self.conditions,
-                )
+#    def __repr__(self):
+#        return '%s(number=%i, conditions=%r)' % (
+#                self.__class__.__name__,
+#                self.number,
+#                self.conditions,
+#                )
 
 class Condition(Object):
     """A node in the Study tree.
@@ -185,10 +185,10 @@ class Condition(Object):
 
     yaml_tag = u'!Condition'
 
-    def __init__(self, name, conditions=dict(), trials=dict()):
+    def __init__(self, name):
         super(Condition, self).__init__(name)
-        self.conditions = conditions
-        self.trials = trials
+        self.conditions = dict()
+        self.trials = dict()
 
     def condition_new(self, cond):
         self.conditions[cond.name] = cond
@@ -202,30 +202,29 @@ class Condition(Object):
     def trial(self, number):
         return self.trials[number]
 
-#    @classmethod
-#    def to_yaml(cls, dumper, data):
-#        return dumper.represent_mapping(data.yaml_tag, {
-#            'name': data.name,
-#            'conditions': data.conditions.values(),
-#            'trials': data.trials.values(),
-#            })
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_mapping(data.yaml_tag, {
+            'conditions': data.conditions,
+            'trials': data.trials,
+            })
 
 #    @classmethod
 #    def from_yaml(cls, loader, node):
 #        value = loader.construct_mapping(node)
 #        return Condition(value['name'])
 
-    def __repr__(self):
-        if len(self.conditions) > 1:
-            cond_repr = {k: repr(v) for k, v in self.conditions.items()}
-        else:
-            cond_repr = 'dict()'
-        return '%s(name=%r, conditions=%s, trials=%r)' % (
-                self.__class__.__name__,
-                self.name,
-                cond_repr,
-                self.trials,
-                )
+#    def __repr__(self):
+#        if len(self.conditions) > 1:
+#            cond_repr = {k: repr(v) for k, v in self.conditions.items()}
+#        else:
+#            cond_repr = 'dict()'
+#        return '%s(name=%r, conditions=%s, trials=%r)' % (
+#                self.__class__.__name__,
+#                self.name,
+#                cond_repr,
+#                self.trials,
+#                )
 
 class Trial(Object):
     """
@@ -248,19 +247,19 @@ class Trial(Object):
     def average_over_gait_cycle(self, h5_table_path, column_name):
         pass
 
-#    @classmethod
-#    def to_yaml(cls, dumper, data):
-#        return dumper.represent_mapping(data.yaml_tag, {
-#            'number': data.number,
-#            })
+    @classmethod
+    def to_yaml(cls, dumper, data):
+        return dumper.represent_mapping(data.yaml_tag, {
+            'number': data.number,
+            })
 
 #    @classmethod
 #    def from_yaml(cls, loader, node):
 #        value = loader.construct_mapping(node)
 #        return Trial(value['number'])
 
-    def __repr__(self):
-        return '%s(number=%i)' % (self.__class__.__name__, self.number)
+#    def __repr__(self):
+#        return '%s(number=%i)' % (self.__class__.__name__, self.number)
 
 # class TrackingSimulation(Object):
 #     """
