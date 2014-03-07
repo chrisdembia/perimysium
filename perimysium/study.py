@@ -20,7 +20,7 @@ import yaml
 
 class Object(yaml.YAMLObject):
 
-    yaml_tag = u'Object'
+    yaml_tag = u'!Object'
 
     def __init__(self, name):
         self.name = name
@@ -37,15 +37,17 @@ class Object(yaml.YAMLObject):
 #        return Object(node.value)
 
     def __repr__(self):
-        return '%s(name=%s)' % (self.__class__.__name__, self.name)
+        return '%s(name=%r)' % (self.__class__.__name__, self.name)
 
     def save(self, fpath):
         # TODO move to Study.
         with open(fpath, 'w') as f:
-            Dumper = yaml.SafeDumper
-            Dumper.ignore_aliases = lambda self, data: True
-            yaml.dump(self, stream=f, default_flow_style=False, indent=4,
-                    Dumper=Dumper)
+            #Dumper = yaml.Dumper
+            #Dumper.ignore_aliases = lambda self, data: True
+            #print yaml.dump(self, default_flow_style=False, indent=4)
+            yaml.dump(self, stream=f, default_flow_style=False, indent=4)
+            #yaml.dump(self, stream=f, default_flow_style=False, indent=4,
+            #        Dumper=Dumper)
 
 class Study(Object):
     """
@@ -119,11 +121,12 @@ class Study(Object):
             return yaml.load(f.read())
 
     def __repr__(self):
-        return '%s(name=%r, subjects=%s)' % (
+        print self.subjects
+        return '%s(name=%r, pytable_fpath=%r, subjects=%r)' % (
                 self.__class__.__name__,
                 self.name,
-                {k: repr(v) for k, v in self.subjects.items()},
-                )
+                self.pytable_fpath,
+                self.subjects)
 
 class Subject(Object):
     """
@@ -162,10 +165,10 @@ class Subject(Object):
 #        return Subject(value['number'])
 
     def __repr__(self):
-        return '%s(number=%i, conditions=%s)' % (
+        return '%s(number=%i, conditions=%r)' % (
                 self.__class__.__name__,
                 self.number,
-                {k: repr(v) for k, v in self.conditions.items()},
+                self.conditions,
                 )
 
 class Condition(Object):
@@ -217,11 +220,11 @@ class Condition(Object):
             cond_repr = {k: repr(v) for k, v in self.conditions.items()}
         else:
             cond_repr = 'dict()'
-        return '%s(name=%r, conditions=%s, trials=%s)' % (
+        return '%s(name=%r, conditions=%s, trials=%r)' % (
                 self.__class__.__name__,
                 self.name,
                 cond_repr,
-                {k: repr(v) for k, v in self.trials.items()},
+                self.trials,
                 )
 
 class Trial(Object):

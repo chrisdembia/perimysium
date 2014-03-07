@@ -3,7 +3,7 @@ import os
 from nose.tools import assert_equal
 import yaml
 
-from perimysium.study import Study, Subject, Condition, Trial
+from perimysium.study import Object, Study, Subject, Condition, Trial
 
 parentdir = os.path.abspath(os.path.dirname(__file__))
 
@@ -12,12 +12,12 @@ def fpath(fname):
 
 def test_serialization_dump():
     s = Study('walking', 'database.h5')
-    #s.subject_new(Subject(1))
-    #s.subject_new(Subject(2))
-    #s.subject(1).condition_new(Condition('noload'))
-    #s.subject(1).condition_new(Condition('loaded'))
-    #s.subject(1).condition('noload').condition_new(Condition('free'))
-    #s.subject(1).condition('noload').condition('free').trial_new(Trial(1))
+    s.subject_new(Subject(1))
+    s.subject_new(Subject(2))
+    s.subject(1).condition_new(Condition('noload'))
+    s.subject(1).condition_new(Condition('loaded'))
+    s.subject(1).condition('noload').condition_new(Condition('free'))
+    s.subject(1).condition('noload').condition('free').trial_new(Trial(1))
     
     outfpath = fpath('walking_study_dump.yml')
     outfpath_des = fpath('walking_study_des.yml')
