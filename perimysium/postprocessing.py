@@ -14,6 +14,7 @@ import matplotlib
 import pylab as pl
 import tables
 from scipy.signal import butter, filtfilt
+from scipy.stats import nanmean, nanstd
 
 from perimysium import dataman
 
@@ -2839,6 +2840,9 @@ class GaitScrutinyReport:
         opposite limb, and that data is wrapped around so that it starts
         with stance."""
 
+        # TODO def specific_metabolic_cost(subject_mass,
+        # TODO         time, value, cycle_duration, cycle_start=None):
+
         pl.text(0, 0.7, desc)
         pp.savefig(ftitle)
 
@@ -3180,28 +3184,54 @@ def plot(column, *args, **kwargs):
     pl.plot(column.table.cols.time, column, *args, **kwargs)
     pl.xlabel('time (s)')
 
+def data_by_pgc(time, data, gl, side='left'):
 
+    if side == 'left':
+        strike = gl.left_strike
+    elif side == 'right':
+        strike = gl.right_strike
 
+    cycle_duration = (gl.cycle_end - gl.cycle_start)
 
+    if strike < gl.cycle_start:
+        strike += cycle_duration
+    if strike > gl.cycle_end:
+        strike -= cycle_duration                   
 
+    ts, ys = shift_data_to_cycle(gl.cycle_start,
+            gl.cycle_end, strike, time, data)
 
+    pgc = percent_duration(ts, 0, cycle_duration)
 
+    if np.any(pgc > 100.0) or np.any(pgc < 0.0):
+        raise Exception('Percent gait cycle out of range.')
 
+    return pgc, ys
 
+def plot_pgc(time, data, gl, side='left', *args, **kwargs):
 
+    pgc, ys = data_by_pgc(time, data, gl, side=side)
 
+    pl.plot(pgc, ys, *args, **kwargs) 
 
+def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
 
+    output_pgc = np.linspace(0, 100, n_points)
+    data = np.empty((n_points, len(list_of_dicts)))
+    for i, item in enumerate(list_of_dicts):
+        pgc, ys = data_by_pgc(**item)
+        data[:, i] = np.interp(output_pgc, pgc, ys, left=np.nan, right=np.nan)
+    return output_pgc, nanmean(data, axis=1), nanstd(data, axis=1)
 
+def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
+        n_points=400, alpha=0.5, *args, **kwargs):
 
+    pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
+            n_points=n_points)
 
+    pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
 
-
-
-
-
-
-
+    pl.plot(pgc, avg, *args, **kwargs)
 
 
 
