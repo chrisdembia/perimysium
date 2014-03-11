@@ -2810,16 +2810,16 @@ class GaitScrutinyReport:
 
             # Add a curve to this plot for each sim and each comp.
             for comp in self._comps:
-                plot_a_series(comp, label, lw=1.5, **kwargs)
+                plot_a_series(comp, label, color='r', lw=1.5, **kwargs)
             for sim in self._sims:
-                plot_a_series(sim, label, color='r', lw=1.5, **kwargs)
+                plot_a_series(sim, label, lw=1.5, **kwargs)
 
             # Must be done after all other plotting, so that we use the correct
             # ylims.
             for comp in self._comps:
-                plot_landmarks(comp, ylims, lw=1.5)
+                plot_landmarks(comp, ylims, color='r', lw=1.5)
             for sim in self._sims:
-                plot_landmarks(sim, ylims, color='r', lw=1.5)
+                plot_landmarks(sim, ylims, lw=1.5)
 
             pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
 
@@ -2831,8 +2831,8 @@ class GaitScrutinyReport:
         ftitle.suptitle(self._title, fontweight='bold')
         desc = str()
         if self._sim_name and self._comp_name:
-            desc = ('Comparison between:\n- %s (red lines), '
-                    'and\n- %s (black lines). \n' % (
+            desc = ('Comparison between:\n- %s (black lines), '
+                    'and\n- %s (red lines). \n' % (
                     self._sim_name, self._comp_name))
         desc += """
         Black lines are for the primary limb; gray lines are for the
