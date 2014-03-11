@@ -2574,7 +2574,8 @@ class GaitScrutinyReport:
     def __init__(self, title='OpenSim gait2392 simulation comparison',
             sim_name=None, comp_name=None, do_plot_opposite=True,
             do_plot_joint_torques=False, max_muscle_force=None,
-            max_muscle_power=None, max_metabolic_rate=None, muscles=None):
+            max_muscle_power=None, max_metabolic_rate=None, muscles=None,
+            met_suffix=None):
         """
 
         Parameters
@@ -2603,6 +2604,11 @@ class GaitScrutinyReport:
             this value.
         muscles : optional
             TODO
+        met_suffix : str, optional
+            The suffix in the column names of the metabolic probes. If None,
+            then metabolic probe reporter column names are like
+            'metabolic_power_soleus_r'. With met_suffix as `umb`, column names
+            are expected to be `metabolic_power_umb_soleus_r`.
 
         """
         self._title = title
@@ -2616,6 +2622,7 @@ class GaitScrutinyReport:
         self._max_muscle_power = max_muscle_power
         self._max_metabolic_rate = max_metabolic_rate
         self._muscles = muscles
+        self.met_suffix = met_suffix
 
     def add_simulation(self, name, sim, primary_leg, cycle_start, cycle_end,
             primary_strike, opposite_strike, toeoff=None, description=None,
@@ -2803,14 +2810,14 @@ class GaitScrutinyReport:
 
             # Add a curve to this plot for each sim and each comp.
             for comp in self._comps:
-                plot_a_series(comp, label, **kwargs)
+                plot_a_series(comp, label, lw=1.5, **kwargs)
             for sim in self._sims:
                 plot_a_series(sim, label, color='r', lw=1.5, **kwargs)
 
             # Must be done after all other plotting, so that we use the correct
             # ylims.
             for comp in self._comps:
-                plot_landmarks(comp, ylims)
+                plot_landmarks(comp, ylims, lw=1.5)
             for sim in self._sims:
                 plot_landmarks(sim, ylims, color='r', lw=1.5)
 
@@ -2824,8 +2831,8 @@ class GaitScrutinyReport:
         ftitle.suptitle(self._title, fontweight='bold')
         desc = str()
         if self._sim_name and self._comp_name:
-            desc = ('Comparison between:\n- %s (solid lines), '
-                    'and\n- %s (dashed lines). \n' % (
+            desc = ('Comparison between:\n- %s (red lines), '
+                    'and\n- %s (black lines). \n' % (
                     self._sim_name, self._comp_name))
         desc += """
         Black lines are for the primary limb; gray lines are for the
@@ -3051,6 +3058,12 @@ class GaitScrutinyReport:
                         msets[i], ylims=ylims)
 
             # Metabolics.
+            if self.met_suffix:
+                met_pattern = 'metabolic_power_{}_%s_!'.format(
+                        self.met_suffix)
+            else:
+                met_pattern = 'metabolic_power_%s_!'
+
             try:
                 for i in range(3):
                     if self._max_metabolic_rate:
@@ -3059,7 +3072,7 @@ class GaitScrutinyReport:
                     create_plate('metabolics (%s)' % msubnames[i],
                             'ProbeReporter_probes',
                             'metabolic consumption rate (W)',
-                            'metabolic_power_%s_!', (4, 4), msets[i],
+                            met_pattern, (4, 4), msets[i],
                             ylims=ylims)
             except Exception, e:
                 print e.message
