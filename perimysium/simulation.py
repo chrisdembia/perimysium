@@ -40,7 +40,8 @@ class Simulation(ode):
     
         # Let the user control the model, given its updated state.
         if self._controller_func:
-            controls_vector = controller_fcn(opensim_model, self.opensim_state)
+            controls_vector = self._controller_fcn(opensim_model,
+                    self.opensim_state)
             self.opensim_model.setControls(self.opensim_state, controls_vector)
     
         # Update the derivatives again, given the controls.
