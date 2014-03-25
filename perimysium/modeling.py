@@ -657,6 +657,8 @@ def set_model_state_from_storage(model, storage, time, state=None):
 
     # TODO Maybe CAN rely on this.
     state.setTime(time)
+    
+    model.assemble(state)
 
     return state
 
