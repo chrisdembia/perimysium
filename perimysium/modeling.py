@@ -636,9 +636,9 @@ def set_model_state_from_storage(model, storage, time, state=None):
     if state == None:
         state = model.initState()
 
-    n_states = storage.getSize()
-
     state_names = storage.getColumnLabels()
+    
+    n_states = state_names.getSize()
 
     # Interpolate the data to obtain the state (placed into sto_state) at the
     # specified time. Grab all the states (n_states). I'm assuming that these
@@ -709,7 +709,7 @@ def analysis(model, storage, fcn, times=None):
     for i, t in enumerate(times):
         this_state = set_model_state_from_storage(model, storage, t,
                 state=state)
-        qty[i] = fcn(model, state)
+        qty[i] = fcn(model, this_state)
 
     return times, qty
 
