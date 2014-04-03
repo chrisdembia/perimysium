@@ -619,9 +619,9 @@ def plot_rra_gait_info(rra_results_dir):
         pl.plot([data['time'][0], data['time'][-1]], [-val, -val],
                 c=[0.7, 0.7, 0.7])
 
-    def make_pretty_perr():
+    def make_pretty_perr(ylabel='rotation error (deg)'):
         pl.axhline(0, c='k')
-        pl.ylabel('rotation error (deg)')
+        pl.ylabel(ylabel)
         pl.xlabel('time (s)')
         pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
         pl.ylim((-2, 2))
@@ -665,7 +665,7 @@ def plot_rra_gait_info(rra_results_dir):
     pl.title('pelvis translation')
     for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
         pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
-    make_pretty_perr()
+    make_pretty_perr('translation error (cm)')
 
     pl.subplot(624)
     rad2deg = np.rad2deg(1.0)
