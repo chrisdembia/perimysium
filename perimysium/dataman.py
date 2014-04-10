@@ -1047,7 +1047,8 @@ def _populate_table_with_trc(h5file, group, table_name, trc_fpath):
 
 def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         title='', ext='.sto', overwrite_if_newer=False,
-        remove_shared_name=True, table_name_repl={}, **kwargs):
+        remove_shared_name=True, table_name_repl={}, silent_skip=False,
+        **kwargs):
     """Docks an OpenSim output, via a table for each STO (see `ext`) file, in a
     pyTable file.
 
@@ -1087,6 +1088,9 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
     table_name_repl : dict, optional
         Key-value pairs of regular expressions and corresponding replacements
         for table names.
+    silent_skip : bool, optional
+        If no files ending in `ext` are found in `output_path`, don't make no
+        fuss.
     **kwargs : optional
         Passed onto _populate_table. May want to use the kwarg 'replacements'.
 
@@ -1114,7 +1118,11 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
 
     # If there are no storage files, the user probably gave a bad path.
     if len(storage_files) == 0:
-        raise Exception("No {0} files found in {1}.".format(ext, output_path))
+        if silent_skip:
+            return None
+        else:
+            raise Exception("No {0} files found in {1}.".format(ext,
+                output_path))
 
     # If there's only one, usually the states file, forget about this output.
     if (not allow_one) and len(storage_files) == 1:
