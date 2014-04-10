@@ -43,9 +43,26 @@ if sys.version_info[0] == 2 and sys.version_info[1] < 6:
         return os.path.join(*rel_list)
     os.path.relpath = relpath
 
-def remove_field_from_structured_ndarray(ndarray, field):
+def remove_fields_from_structured_ndarray(ndarray, fields):
+    """Returns the ndarray but now without the fields specified.
+    
+    Parameters
+    ----------
+    ndarray: numpy.ndarray
+        The structured ndarray from which to remove a field (and corresponding
+        data).
+    fields: list of str's, or a single str.
+        e.g., 'F2X'.
+
+    Returns
+    -------
+    new_ndarray: numpy.ndarray
+    
+    """
     names = list(ndarray.dtype.names)
-    names.remove(field)
+    if type(fields
+    for field in fields:
+        names.remove(field)
     return ndarray[names]
 
 class GaitLandmarks(object):
