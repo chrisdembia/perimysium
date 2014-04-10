@@ -43,7 +43,7 @@ if sys.version_info[0] == 2 and sys.version_info[1] < 6:
         return os.path.join(*rel_list)
     os.path.relpath = relpath
 
-def remove_fields_from_structured_ndarray(ndarray, fields):
+def remove_fields_from_structured_ndarray(ndarray, fields, copy=True):
     """Returns the ndarray but now without the fields specified.
     
     Parameters
@@ -53,6 +53,12 @@ def remove_fields_from_structured_ndarray(ndarray, fields):
         data).
     fields: list of str's, or a single str.
         e.g., 'F2X'.
+    copy: bool, optional
+        NumPy doesn't like it if you tamper with the returned ndarray, since we
+        used array indexing to give it to you. It prefers we return a copy
+        of the array. This takes more time/memory, though. So if you are not
+        going to tamper with the returned value, you may want `copy` to be
+        False.
 
     Returns
     -------
@@ -64,7 +70,10 @@ def remove_fields_from_structured_ndarray(ndarray, fields):
         fields = [fields]
     for field in fields:
         names.remove(field)
-    return ndarray[names]
+    if copy:
+        return ndarray[names].copy()
+    else:
+        return ndarray[names]
 
 class GaitLandmarks(object):
     def __init__(self,
