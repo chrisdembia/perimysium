@@ -60,7 +60,8 @@ def remove_fields_from_structured_ndarray(ndarray, fields):
     
     """
     names = list(ndarray.dtype.names)
-    if type(fields
+    if type(fields) != list:
+        fields = [fields]
     for field in fields:
         names.remove(field)
     return ndarray[names]
