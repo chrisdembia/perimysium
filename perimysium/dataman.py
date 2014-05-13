@@ -405,6 +405,42 @@ def ndarray2storage(ndarray, storage_fpath, name=None, in_degrees=False):
 
     f.close()
 
+
+def Storage(object):
+    """Can deserialize a storage file and provides a method to interpolate the
+    data in the storage file.
+
+    """
+
+    def __init__(self, storage_file):
+        """
+
+        Parameters
+        ----------
+        storage_file : str
+            The .STO file to load.
+
+        """
+        self.data = storage2numpy(storage_file)
+
+    def interpolate(self, column_name, time):
+        """
+        Parameters
+        ----------
+        column_name : str
+            Name of a column in the storage file.
+        time : float
+            The time at which you'd like your data.
+
+        Returns
+        -------
+        y_value : float
+            The data interpolated at the time provided.
+
+        """
+        return np.interp(time, self.data['time'], self.data[column_name],
+                left=np.nan, right=np.nan)
+
 def storage2numpy(storage_file, excess_header_entries=0):
     """Returns the data from a storage file in a numpy format. Skips all lines
     up to and including the line that says 'endheader'.
