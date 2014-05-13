@@ -21,6 +21,10 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
 
     Parameters
     ----------
+    fcn : function
+        The first argument is cmc_input. `fcn` can optionally accept a second
+        argument `orig_cmc_setup_fpath`, which is the `cmc_setup_fpath`
+        provided here, given as an absolute path, given as an absolute path.
     minimal : str, optional (default: True)
         If True, copy over only the modified files; rely otherwise on the
         original files that CMC setup file referred to. If False, all
@@ -86,8 +90,17 @@ def experiment(cmc_setup_fpath, parent_dir, name, description, fcn,
             'actuators': exp_fpaths['actuators']
             }
 
+    fcn_args = [cmc_input]
+
+    # Find out if the user's `fcn` will accept a second argument
+    # `orig_cmc_setup_fpath`.
+    import inspect
+    argspec = inspect.getargspec(fcn)
+    if len(argspec[0]) >= 2 and argspec[0][1] == 'orig_cmc_setup_abs_fpath':
+        fcn_args.append(os.path.abspath(cmc_setup_fpath))
+
     # Give the user a chance to edit these files.
-    new_cmc_input_maybe = fcn(cmc_input)
+    new_cmc_input_maybe = fcn(*fcn_args)
     if new_cmc_input_maybe:
         cmc_input = new_cmc_input_maybe
 
