@@ -2624,6 +2624,12 @@ class GaitScrutinyReport:
         self._max_metabolic_rate = max_metabolic_rate
         self._muscles = muscles
         self.met_suffix = met_suffix
+        self.sim_primary_color = 'k'
+        self.sim_opposite_color = 'k'
+        self.comp_primary_color = 'r'
+        self.comp_opposite_color = 'r'
+        from matplotlib.colors import ColorConverter
+        self.cconv = ColorConverter()
 
     def add_simulation(self, name, sim, primary_leg, cycle_start, cycle_end,
             primary_strike, opposite_strike, toeoff=None, description=None,
@@ -2762,9 +2768,15 @@ class GaitScrutinyReport:
                     "'primary_leg' is %s; must be 'right' or 'left'." % (
                         series['primary_leg']))
 
-            if 'color' in kwargs: kwargs.pop('color')
+            if 'color' in kwargs:
+                rgba = list(self.cconv.to_rgba(kwargs['color']))
+                # Edit alpha value.
+                rgba[3] = 0.5 * rgba[3]
+                kwargs['color'] = rgba
+            else:
+                kwargs['color'] = (0.5, 0.5, 0.5)
             plot_for_a_leg(table, series, coordinate_name, opposite_leg,
-                    'opposite_strike', color=(0.5, 0.5, 0.5), **kwargs)
+                    'opposite_strike', **kwargs)
 
         def plot_coordinate(grid, loc, table, name, units='-', negate=False,
                 label=None, title=None, ylims=None, **kwargs):
@@ -2810,17 +2822,21 @@ class GaitScrutinyReport:
                 ax = pl.subplot(grid[loc[0], loc[1]])
 
             # Add a curve to this plot for each sim and each comp.
-            for comp in self._comps:
-                plot_a_series(comp, label, color='r', lw=1.5, **kwargs)
             for sim in self._sims:
-                plot_a_series(sim, label, lw=1.5, **kwargs)
+                plot_a_series(sim, label, color=self.sim_primary_color,
+                        lw=1.5, **kwargs)
+            for comp in self._comps:
+                plot_a_series(comp, label, color=self.comp_primary_color,
+                        lw=1.5, **kwargs)
 
             # Must be done after all other plotting, so that we use the correct
             # ylims.
-            for comp in self._comps:
-                plot_landmarks(comp, ylims, color='r', lw=1.5)
             for sim in self._sims:
-                plot_landmarks(sim, ylims, lw=1.5)
+                plot_landmarks(sim, ylims, color=self.sim_primary_color,
+                        lw=1.5)
+            for comp in self._comps:
+                plot_landmarks(comp, ylims, color=self.comp_primary_color,
+                        lw=1.5)
 
             pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
 
@@ -3203,16 +3219,22 @@ def data_by_pgc(time, data, gl, side='left'):
 
     pgc = percent_duration(ts, 0, cycle_duration)
 
-    if np.any(pgc > 100.0) or np.any(pgc < 0.0):
+    if np.any(pgc > 100.0):
+        print('Percent gait cycle greater than 100: %f' % np.max(pgc))
+    if np.any(pgc > 100.01) or np.any(pgc < 0.0):
         raise Exception('Percent gait cycle out of range.')
 
     return pgc, ys
 
-def plot_pgc(time, data, gl, side='left', *args, **kwargs):
+def plot_pgc(time, data, gl, side='left', axes=None, *args, **kwargs):
 
     pgc, ys = data_by_pgc(time, data, gl, side=side)
 
-    pl.plot(pgc, ys, *args, **kwargs) 
+    if axes:
+        ax = axes
+    else:
+        ax = pl
+    ax.plot(pgc, ys, *args, **kwargs) 
 
 def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
 
@@ -3224,14 +3246,14 @@ def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
     return output_pgc, nanmean(data, axis=1), nanstd(data, axis=1)
 
 def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
-        n_points=400, alpha=0.5, *args, **kwargs):
+        n_points=400, lw=1.0, alpha=0.5, label=None, *args, **kwargs):
 
     pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
             n_points=n_points)
 
     pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
 
-    pl.plot(pgc, avg, *args, **kwargs)
+    pl.plot(pgc, avg, *args, lw=lw, label=label, **kwargs)
 
 
 
