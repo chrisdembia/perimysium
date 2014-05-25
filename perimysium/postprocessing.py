@@ -2576,7 +2576,9 @@ class GaitScrutinyReport:
             sim_name=None, comp_name=None, do_plot_opposite=True,
             do_plot_joint_torques=False, max_muscle_force=None,
             max_muscle_power=None, max_metabolic_rate=None, muscles=None,
-            met_suffix=None):
+            met_suffix=None,
+            sim_primary_color='k', sim_opposite_color='k',
+            comp_primary_color='r', comp_opposite_color='r'):
         """
 
         Parameters
@@ -2610,6 +2612,11 @@ class GaitScrutinyReport:
             then metabolic probe reporter column names are like
             'metabolic_power_soleus_r'. With met_suffix as `umb`, column names
             are expected to be `metabolic_power_umb_soleus_r`.
+        sim_primary_color : matplotlib color, optional
+            Color of plots for `simulation`, primary leg.
+        sim_opposite_color : matplotlib color, optional
+        comp_primary_color : matplotlib color, optional
+        comp_opposite_color : matplotlib color, optional
 
         """
         self._title = title
@@ -2624,10 +2631,10 @@ class GaitScrutinyReport:
         self._max_metabolic_rate = max_metabolic_rate
         self._muscles = muscles
         self.met_suffix = met_suffix
-        self.sim_primary_color = 'k'
-        self.sim_opposite_color = 'k'
-        self.comp_primary_color = 'r'
-        self.comp_opposite_color = 'r'
+        self.sim_primary_color = sim_primary_color
+        self.sim_opposite_color = sim_opposite_color
+        self.comp_primary_color = comp_primary_color
+        self.comp_opposite_color = comp_opposite_color
         from matplotlib.colors import ColorConverter
         self.cconv = ColorConverter()
 

@@ -1189,10 +1189,11 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
         # If we are considering overwriting and we SHOULD overwrite (is_newer),
         # then remove the existing group.
         if overwrite_if_newer:
-            if hasattr(current_group, table_name):
+            table = getattr(current_group, table_name, None)
+            if table is not None:
                 # Table exists.
-                table = getattr(current_group, table_name)
-                if ((not hasattr(table.attrs, 'mtime')) or 
+                mtime = getattr(table.attrs, 'mtime', None)
+                if (mtime is None or 
                         (table.attrs.mtime < os.path.getmtime(filepath))):
                     # Table exists and ((there is newer data available) OR (we
                     # don't know how old the stored table is)).
