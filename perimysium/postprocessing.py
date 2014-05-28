@@ -1533,8 +1533,11 @@ def verify_kinematics(pErr_table):
             trans_okay_thresh)
     rot_eval = _evaluate_threshold(max_rot, rot_good_thresh, rot_okay_thresh)
 
-    print 'Translation: %s with maximum %f cm' % (trans_eval, max_trans)
-    print 'Rotation: %s with maximum %f degrees' % (rot_eval, max_rot)
+    return {'trans_eval': trans_eval,
+            'max_trans': max_trans,
+            'rot_eval': rot_eval,
+            'max_rot': max_rot,
+            }
 
 
 def verify_residuals(actforce_table):
