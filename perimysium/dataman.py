@@ -1013,6 +1013,91 @@ def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title='',
 
     return current_group
 
+def dock_storage_in_pytable(h5file, sto_fpath, group_path, name=None,
+        overwrite_if_newer=False, **kwargs):
+    """Docks an OpenSim output, via a table for each STO (see `ext`) file, in a
+    pyTable file.
+
+    Parameters
+    ----------
+    h5file : tables.File
+        pyTables File object, opened using tables.open_file(...). Does NOT
+        close the file.
+    sto_fpath : str
+        A storage (.STO) file to put into the database.
+    group_path : str, or list of str's
+        The group tree hierarchy specifying where the output is to be docked in
+        the h5file; as a path or as list of each directory's name (e.g.:
+        'path/to/file' or ['path', 'to', 'file'])
+    name : str, optional
+        Name of the table. If not provided, we use the filename.
+    overwrite_if_newer : bool, optional (default: False)
+        By default, the tables cannot already exist in the group specified.
+        However, if this is set to True, and the output_path's mtime is greater
+        than the mtime stored in this group, we will first delete the tables so
+        that the newer tables can be written to the database. This is done on a
+        per-table basis. Skip popluation of a table if the table already exists
+        AND the data isn't any newer.
+    silent_skip : bool, optional
+        If no files ending in `ext` are found in `output_path`, don't make no
+        fuss.
+    **kwargs : optional
+        Passed onto _populate_table. May want to use the kwarg 'replacements'.
+
+    Returns
+    -------
+    current_group : tables.Group
+        The pyTables group in which the output has been stored.
+
+    """
+    # Convert group_path to list of str's, if necessary.
+    if type(group_path) == str:
+        group_path = _splitall(group_path)
+
+    # -- Make all necessary groups to get to where we're going.
+    current_group = _blaze_group_trail(h5file, group_path, '')
+
+    # -- Add table in the current group.
+
+    # Get name of the table: after the run name and before the file ext.
+    if not name:
+        name = os.path.spitext(sto_fpath)[0]
+
+    # If we are considering overwriting and we SHOULD overwrite (is_newer),
+    # then remove the existing group.
+    if overwrite_if_newer:
+        table = getattr(current_group, name, None)
+        if table is not None:
+            # Table exists.
+            mtime = getattr(table.attrs, 'mtime', None)
+            if (mtime is None or 
+                    (table.attrs.mtime < os.path.getmtime(sto_fpath))):
+                # Table exists and ((there is newer data available) OR (we
+                # don't know how old the stored table is)).
+                getattr(current_group, name)._f_remove(True) 
+                _populate_table(h5file, current_group, name,
+                        sto_fpath, **kwargs)
+            else:
+                # Table exists and isn't newer; skip writing.
+                pass
+        else:
+            # Table doesn't exist; write it!
+            _populate_table(h5file, current_group, name, sto_fpath,
+                    **kwargs)
+    else:
+        # Try to populate indiscriminantly.
+        _populate_table(h5file, current_group, name, sto_fpath,
+                **kwargs)
+
+    # Update the attribute for when this group was last updated.
+    # This must go after _populate_table, because otherwise the table is
+    # not necessarily created yet.
+    if hasattr(current_group, name):
+        getattr(current_group, name).attrs.mtime = \
+                os.path.getmtime(sto_fpath)
+
+    return current_group
+
 def _populate_table_with_trc(h5file, group, table_name, trc_fpath):
     """Populates a pyTables file with a table, using data from CSV file at
     filepath.
