@@ -2227,6 +2227,7 @@ def plot_force_plate_data(mot_file):
 def plot_joint_torque_contributions(muscle_contrib_table,
         total_joint_torque=None, muscles=None,
         plot_sum_of_selected_muscles=False,
+        gl=None, side='right',
         show_legend=True):
     """Creates a stackplot of the individual muscle contributions to a joint
     torque. Requires output from a Muscle Analysis. This can be used to study
@@ -2248,6 +2249,12 @@ def plot_joint_torque_contributions(muscle_contrib_table,
         Plot only the contributions of these muscles.
     plot_sum_of_selected_muscles : bool, optional (default: False)
         Also plot the sum of contribution of selected muscles.
+    gl : dataman.GaitLandmarks or similar, optional.
+        If you provide this, the joint torques are plotted as a function of
+        percent gait cycle.
+    side : str, 'left' or 'right', optional.
+        If you have provided `gl`, this indicates which limb is used for
+        plotting against percent gait cycle.
     show_legend : bool, optional (default: True)
         Show the legend.
 
@@ -2258,6 +2265,17 @@ def plot_joint_torque_contributions(muscle_contrib_table,
     ...     h.root.rra.Actuation_force.cols.ankle_angle_r)
 
     """
+    if gl is not None:
+        pl.xlabel('percent gait cycle')
+        def plot(t, y, *args, **kwargs):
+            plot_pgc(t[:], y[:], gl, side=side,
+                    *args, **kwargs)
+    else:
+        pl.xlabel('time (s)')
+        def plot(t, y, *args, **kwargs):
+            pl.plot(t, y, *args, **kwargs)
+
+
     # TODO plot between given times, percent gait cycle, etc.
     # For brevity.
     table = muscle_contrib_table
@@ -2280,7 +2298,7 @@ def plot_joint_torque_contributions(muscle_contrib_table,
             threshold) and (muscles == None or cname in muscles)):
             # time column is not a muscle; only look for non-zero
             # contributions.
-            pl.plot(time, table.col(cname), label=cname)
+            plot(time, table.col(cname), label=cname)
 
             if plot_sum_of_selected_muscles:
                 sum_selected += table.col(cname)
@@ -2288,18 +2306,20 @@ def plot_joint_torque_contributions(muscle_contrib_table,
     if plot_sum_of_selected_muscles:
         # 'above' because they appear in the legend above the legend entry
         # for this plot.
-        pl.plot(time, sum_selected, label='sum of muscles above', lw=2)
+        plot(time, sum_selected, label='sum of muscles above', lw=2)
 
     # Plot total on top of individual muscle contributions.
-    pl.plot(time, total_sum, label='sum of all muscles', lw=2)
+    plot(time, total_sum, label='sum of all muscles', lw=2)
 
     # Compare to given total.
     # -----------------------
     if total_joint_torque != None:
-        pl.plot(total_joint_torque.table.cols.time, total_joint_torque,
+        plot(total_joint_torque.table.cols.time, total_joint_torque,
                 label='total joint torque', lw=2)
 
-    pl.xlabel('time (s)')
+    if gl is not None:
+        plot_toeoff_pgc(gl, side)
+        plot_opposite_strike_pgc(gl, side)
 
     if show_legend: pl.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
@@ -2335,7 +2355,60 @@ def muscle_contribution_to_joint_torque(muscle_torque, total_joint_torque):
     delta = float(len(muscle_torque))
     return np.sum(muscle_torque / total) / delta
 
+def contrib_of_one_muscle_about_coordinates(
+        muscle_name, coord_names, group, n_times=100, qty='MomentArm'):
+    """Throughout time, which coordinates does a muscle actuate?
 
+    Parameters
+    ----------
+    muscle_name : str
+        The name of the muscle you'd like to investigate.
+    coord_names : str
+        The coordinates about which you'd like to know this muscle's moment
+        arm.
+    group : pytables.Group
+        Must contain tables named 'Moment_<coord-name>' or
+        'MomentArm_<coord-name>' for each coordinate name in `coord_names`.
+    n_times : int, optional
+        The number of time sampling points.
+    qty : str, optional
+        The quantity we give back to you; 'Moment' or 'MomentArm'.
+
+    Returns
+    -------
+    contrib : numpy.ndarray (`n_times` x `len(coord_names`)
+        The moment or moment arm of the muscle about each coordinate, at each
+        of the throughout time. This can be indexed by the coordinate names
+        (e.g.  `contrib['ankle_angle_r']`).
+
+    """
+    n_coords = len(coord_names)
+    contrib = np.empty(n_times, dtype={'names': ['time'] + coord_names,
+        'formats': (n_coords + 1) * ['f4']})
+    first_coord = True
+    for coord in coord_names:
+        table = getattr(group, '%s_%s' % (qty, coord))
+        if first_coord:
+            times = np.linspace(table.cols.time[0], table.cols.time[-1],
+                    n_times)
+            first_coord = False
+        for i, time in enumerate(times):
+            data = table.col(muscle_name)[:]
+            contrib[coord][i] = np.interp(time, table.cols.time, data)
+    contrib['time'] = times
+    return contrib
+
+def plot_contrib_of_one_muscle_about_coordinates(muscle_name, coord_names,
+        group, gl=None, side=None, **kwargs):
+    marms = contrib_of_one_muscle_about_coordinates(muscle_name,
+            coord_names, group, **kwargs)
+    for col in marms.dtype.names:
+        if col != 'time':
+            if gl is not None:
+                plot_pgc(marms['time'], marms[col], gl, side=side, label=col)
+            else:
+                pl.plot(marms['time'], marms[col], label=col)
+    
 def plot_gait_kinematics(kin, primary_leg, cycle_start, cycle_end,
         primary_footstrike, opposite_footstrike,
         toeoff_time=None, do_plot_opposite=True):
@@ -3236,7 +3309,35 @@ def data_by_pgc(time, data, gl, side='left'):
 
     return pgc, ys
 
-def plot_pgc(time, data, gl, side='left', axes=None, *args, **kwargs):
+def plot_opposite_strike_pgc(gl, side, axes=None, *args, **kwargs):
+    if axes:
+        ax = axes
+    else:
+        ax = pl
+    if side == 'left':
+        strike = gl['right_strike']
+    elif side == 'right':
+        strike = gl['left_strike']
+    else:
+        raise Exception()
+    ax.axvline(percent_duration_single(strike,
+        gl[side + '_strike'],
+        gl[side + '_strike'] + gl['cycle_end'] - gl['cycle_start']),
+        *args, **kwargs)
+
+def plot_toeoff_pgc(gl, side, axes=None, *args, **kwargs):
+    if axes:
+        ax = axes
+    else:
+        ax = pl
+    toeoff = gl[side + '_toeoff']
+    ax.axvline(percent_duration_single(toeoff,
+        gl[side + '_strike'],
+        gl[side + '_strike'] + gl['cycle_end'] - gl['cycle_start']),
+        *args, **kwargs)
+
+def plot_pgc(time, data, gl, side='left', axes=None, plot_toeoff=False, *args,
+        **kwargs):
 
     pgc, ys = data_by_pgc(time, data, gl, side=side)
 
@@ -3244,7 +3345,11 @@ def plot_pgc(time, data, gl, side='left', axes=None, *args, **kwargs):
         ax = axes
     else:
         ax = pl
-    ax.plot(pgc, ys, *args, **kwargs) 
+    ax.plot(pgc, ys, *args, **kwargs)
+    
+    if plot_toeoff:
+        plot_toeoff_pgc(gl, side, ax, *args, **kwargs)
+
 
 def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
 

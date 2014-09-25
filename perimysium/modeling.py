@@ -871,11 +871,42 @@ class IKTaskSet:
         self.add_ikmarkertask('L%s' % name, do_apply, weight)
         self.add_ikmarkertask('R%s' % name, do_apply, weight)
 
+    def add_ikcoordinatetask(self, name, do_apply, manual_value, weight):
+        """Creates an IKCoordinateTask (using a manual value) and appends it to
+        the IKTaskSet.
 
+        name : str
+            org.opensim.modeling.IKMarkerTask.setName(name)
+        do_apply : bool
+            org.opensim.modeling.IKMarkerTask.setApply(do_apply)
+        manual_value : float
+            The desired value for this coordinate.
+        weight : float
+            org.opensim.modeling.IKMarkerTask.setWeight(weight)
 
+        """
+        ikt = osm.IKCoordinateTask()
+        ikt.setName(name)
+        ikt.setApply(do_apply)
+        ikt.setValueType(ikt.ManualValue)
+        ikt.setValue(manual_value)
+        ikt.setWeight(weight)
+        self.iktaskset.cloneAndAppend(ikt)
 
+    def add_ikcoordinatetask_bilateral(self, name, do_apply, manual_value,
+            weight):
+        """Adds two IKCoordinateTask's to the IKTaskSet.
 
+        Parameters
+        ----------
+        name : str
+            if 'name' is 'hip_flexion', then two tasks for coordinates
+            'hip_flexion_r' and 'hip_flexion_l' will be added.
+        do_apply, manual_value, weight :
+            See `add_ikcoordinatetask`.
 
-
-
-
+        """
+        self.add_ikcoordinatetask('%s_l' % name, do_apply, manual_value,
+                weight)
+        self.add_ikcoordinatetask('%s_r' % name, do_apply, manual_value,
+                weight)

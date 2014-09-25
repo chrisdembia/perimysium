@@ -3,6 +3,8 @@
 """
 http://wiki.scipy.org/Cookbook/EmbeddingInTraitsGUI
 http://code.enthought.com/projects/traits/docs/html/_static/mpl_figure_editor.py
+https://github.com/enthought/traitsui/blob/master/examples/demo/Standard_Editors/CheckListEditor_simple_demo.py
+http://stackoverflow.com/questions/16663908/enthought-traits-ui-add-values-dynamically-to-values-trait-of-checklisteditor
 """
 
 import sys
@@ -18,8 +20,8 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wx import NavigationToolbar2Wx
 
-from traits.api import HasTraits, Any, Instance
-from traitsui.api import View, Item
+from traits.api import HasTraits, Any, Instance, List, Str
+from traitsui.api import View, Item, HSplit, CheckListEditor
 from traitsui.wx.editor import Editor
 from traitsui.wx.basic_editor_factory import BasicEditorFactory
 
@@ -57,12 +59,20 @@ class MPLFigureEditor(BasicEditorFactory):
 class StoragePlotter(HasTraits):
 
     figure = Instance(Figure, ())
+    columns = List(Str)
+    selector = List(editor=CheckListEditor(name='columns'))
 
-    view = View(Item('figure', editor=MPLFigureEditor(),
-                            show_label=False),
-                    width=400,
-                    height=300,
-                    resizable=True)
+    view = View(
+            HSplit(
+                Item('figure', editor=MPLFigureEditor(),
+                    show_label=False
+                    ),
+                Item('selector', style='custom'),
+                ),
+            width=400,
+            height=300,
+            resizable=True,
+            )
 
     def __init__(self, stofpath, *columns):
         HasTraits.__init__(self, trait_value=True)
@@ -71,23 +81,14 @@ class StoragePlotter(HasTraits):
         elif stofpath.endswith('.trc'):
             self.data = TRCFile(stofpath).data
         axes = self.figure.add_subplot(111)
-        for name in self.data.dtype.names:
-            if name != 'time' and (len(columns) == 0 or name in columns):
-                axes.plot(self.data['time'], self.data[name], label=name)
-        axes.set_xlabel('time (s)')
-        axes.legend(loc='best')
-
-def start_gui(*args, **kwargs):
-    '''Start the GUI. The GUI automatically creates a Human, and lets the user
-    modify its configuration and observe the resulting change in the human's
-    inertia properties.
-
-    Parameters
-    ----------
-    meas_in : str, optional
-        The filename of a measurements file to use for the human.
-    '''
-    YeadonGUI(*args, **kwargs).configure_traits()
+        columns = list(self.data.dtype.names)
+        columns.remove('time')
+        self.columns = columns
+        #for name in self.data.dtype.names:
+        #    if name != 'time' and (len(columns) == 0 or name in columns):
+        #        axes.plot(self.data['time'], self.data[name], label=name)
+        #axes.set_xlabel('time (s)')
+        #axes.legend(loc='best')
 
 def start_plotter(*args, **kwargs):
     """TODO"""
