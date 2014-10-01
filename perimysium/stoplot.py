@@ -20,8 +20,8 @@ from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wx import NavigationToolbar2Wx
 
-from traits.api import HasTraits, Any, Instance, List, Str
-from traitsui.api import View, Item, HSplit, CheckListEditor
+from traits.api import HasTraits, Any, Instance, List, Str, on_trait_change
+from traitsui.api import View, Item, HGroup, CheckListEditor
 from traitsui.wx.editor import Editor
 from traitsui.wx.basic_editor_factory import BasicEditorFactory
 
@@ -59,36 +59,43 @@ class MPLFigureEditor(BasicEditorFactory):
 class StoragePlotter(HasTraits):
 
     figure = Instance(Figure, ())
-    columns = List(Str)
-    selector = List(editor=CheckListEditor(name='columns'))
+    avail_columns = List(Str)
+    columns = List(
+            editor=CheckListEditor(name='avail_columns',
+                format_func=lambda x: x))
 
     view = View(
-            HSplit(
+            HGroup(
                 Item('figure', editor=MPLFigureEditor(),
                     show_label=False
                     ),
-                Item('selector', style='custom'),
+                Item('columns', style='custom'),
+    #            scrollable=True,
                 ),
-            width=400,
-            height=300,
+            width=700,
+            height=400,
             resizable=True,
             )
 
-    def __init__(self, stofpath, *columns):
+    def __init__(self, stofpath):
         HasTraits.__init__(self, trait_value=True)
         if stofpath.endswith('.sto') or stofpath.endswith('.mot'):
             self.data = storage2numpy(stofpath)
         elif stofpath.endswith('.trc'):
             self.data = TRCFile(stofpath).data
-        axes = self.figure.add_subplot(111)
-        columns = list(self.data.dtype.names)
-        columns.remove('time')
-        self.columns = columns
-        #for name in self.data.dtype.names:
-        #    if name != 'time' and (len(columns) == 0 or name in columns):
-        #        axes.plot(self.data['time'], self.data[name], label=name)
-        #axes.set_xlabel('time (s)')
-        #axes.legend(loc='best')
+        avail_columns = list(self.data.dtype.names)
+        avail_columns.remove('time')
+        self.avail_columns = avail_columns
+
+        self.axes = self.figure.add_subplot(111)
+
+    @on_trait_change('columns')
+    def _columns_changed(self):
+        self.axes.cla()
+        for name in self.columns:
+            self.axes.plot(self.data['time'], self.data[name], label=name)
+        self.axes.set_xlabel('time (s)')
+        self.axes.legend(loc='best')
 
 def start_plotter(*args, **kwargs):
     """TODO"""
