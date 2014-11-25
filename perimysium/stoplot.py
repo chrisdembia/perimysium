@@ -77,7 +77,7 @@ class StoragePlotter(HasTraits):
             resizable=True,
             )
 
-    def __init__(self, stofpath):
+    def __init__(self, stofpath, *args):
         HasTraits.__init__(self, trait_value=True)
         if stofpath.endswith('.sto') or stofpath.endswith('.mot'):
             self.data = storage2numpy(stofpath)
@@ -88,6 +88,10 @@ class StoragePlotter(HasTraits):
         self.avail_columns = avail_columns
 
         self.axes = self.figure.add_subplot(111)
+
+        for arg in args:
+            self.columns.append(arg)
+            self._columns_changed()
 
     @on_trait_change('columns')
     def _columns_changed(self):

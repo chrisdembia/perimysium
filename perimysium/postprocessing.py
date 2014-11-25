@@ -2306,20 +2306,20 @@ def plot_joint_torque_contributions(muscle_contrib_table,
     if plot_sum_of_selected_muscles:
         # 'above' because they appear in the legend above the legend entry
         # for this plot.
-        plot(time, sum_selected, label='sum of muscles above', lw=2)
+        plot(time, sum_selected, label='sum of muscles above', lw=2, color='r')
 
     # Plot total on top of individual muscle contributions.
-    plot(time, total_sum, label='sum of all muscles', lw=2)
+    plot(time, total_sum, label='sum of all muscles', lw=2, color='b')
 
     # Compare to given total.
     # -----------------------
     if total_joint_torque != None:
         plot(total_joint_torque.table.cols.time, total_joint_torque,
-                label='total joint torque', lw=2)
+                label='total joint torque', lw=2, color='k')
 
     if gl is not None:
-        plot_toeoff_pgc(gl, side)
-        plot_opposite_strike_pgc(gl, side)
+        plot_toeoff_pgc(gl, side, color='k')
+        plot_opposite_strike_pgc(gl, side, color='gray')
 
     if show_legend: pl.legend(loc='upper left', bbox_to_anchor=(1, 1))
 
@@ -2826,6 +2826,24 @@ class GaitScrutinyReport:
         # --------------
         def plot_for_a_leg(table, landmarks, coordinate_name, leg, new_start,
                 color='k', mult=None, interval=1, cut_off=False, **kwargs):
+            if landmarks['primary_leg'] == 'right': 
+                right_strike = landmarks['primary_strike']
+                right_toeoff = landmarks['toeoff']
+                left_strike = landmarks['opposite_strike']
+                left_toeoff = np.nan
+            elif landmarks['primary_leg'] == 'left':
+                left_strike = landmarks['primary_strike']
+                left_toeoff = landmarks['toeoff']
+                right_strike = landmarks['opposite_strike']
+                right_toeoff = np.nan
+            gl = dataman.GaitLandmarks(
+                    primary_leg=landmarks['primary_leg'],
+                    cycle_start=landmarks['cycle_start'],
+                    cycle_end=landmarks['cycle_end'],
+                    left_strike=left_strike,
+                    left_toeoff=left_toeoff,
+                    right_strike=right_strike,
+                    right_toeoff=right_toeoff)
             time, ordinate = shift_data_to_cycle(
                     landmarks['cycle_start'],
                     landmarks['cycle_end'],
@@ -2835,10 +2853,15 @@ class GaitScrutinyReport:
                         coordinate_name.replace('!', leg[0]))[::interval],
                     )#cut_off=True)
 
+            pgc, ordinate = data_by_pgc(
+                    table.cols.time[::interval],
+                    getattr(table.cols,
+                        coordinate_name.replace('!', leg[0]))[::interval],
+                    gl, side=leg)
+
             if mult != None: ordinate *= mult
 
-            pl.plot(percent_duration(time), ordinate, color=color,
-                        label=leg, **kwargs)
+            pl.plot(pgc, ordinate, color=color, label=leg, **kwargs)
 
         def plot_primary_leg(table, series, coordinate_name, **kwargs):
             plot_for_a_leg(table, series, coordinate_name,
@@ -3320,9 +3343,14 @@ def plot_opposite_strike_pgc(gl, side, axes=None, *args, **kwargs):
         strike = gl['left_strike']
     else:
         raise Exception()
+    cycle_duration = (gl.cycle_end - gl.cycle_start)
+    while strike < gl[side + '_strike']:
+        strike += cycle_duration
+    while strike > gl[side + '_strike'] + cycle_duration:
+        strike -= cycle_duration
     ax.axvline(percent_duration_single(strike,
         gl[side + '_strike'],
-        gl[side + '_strike'] + gl['cycle_end'] - gl['cycle_start']),
+        gl[side + '_strike'] + cycle_duration),
         *args, **kwargs)
 
 def plot_toeoff_pgc(gl, side, axes=None, *args, **kwargs):
@@ -3331,9 +3359,14 @@ def plot_toeoff_pgc(gl, side, axes=None, *args, **kwargs):
     else:
         ax = pl
     toeoff = gl[side + '_toeoff']
+    cycle_duration = (gl.cycle_end - gl.cycle_start)
+    while toeoff < gl[side + '_strike']:
+        toeoff += cycle_duration
+    while toeoff > gl[side + '_strike'] + cycle_duration:
+        toeoff -= cycle_duration
     ax.axvline(percent_duration_single(toeoff,
         gl[side + '_strike'],
-        gl[side + '_strike'] + gl['cycle_end'] - gl['cycle_start']),
+        gl[side + '_strike'] + cycle_duration),
         *args, **kwargs)
 
 def plot_pgc(time, data, gl, side='left', axes=None, plot_toeoff=False, *args,
