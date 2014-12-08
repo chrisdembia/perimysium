@@ -196,7 +196,7 @@ def metabolic_expenditure_const_eff(power, exclude=None, concentric_eff=0.25,
     return met_expenditure_rate, avg(power.cols.time, met_expenditure_rate)
 
 
-def sum_of_squared_activations(states_table):
+def sum_of_squared_activations(states_table, weight_map=None):
     """Computes the sum, across all muscles, of the square of muscle
     activations.
 
@@ -204,6 +204,9 @@ def sum_of_squared_activations(states_table):
     ----------
     states_table : tables.Table
         A pyTables table containing muscle activation time series data.
+    weight_map : dict, optional
+        If you want to weight muscles by, e.g. muscle volume. Keys are muscle
+        names, values are the weights as floats.
 
     Returns
     -------
@@ -214,16 +217,30 @@ def sum_of_squared_activations(states_table):
     SSA = np.zeros(states_table.col('time').shape)
     for col_name in states_table.colnames:
         if col_name.endswith('activation'):
-            SSA += states_table.col(col_name)**2
+            if weight_map == None:
+                weight = 1
+            else:
+                weight = weight_map[col_name.replace('_activation', '')]
+            SSA += weight * states_table.col(col_name)**2
     return SSA
 
-def avg_sum_of_squared_activations(states_table):
+def avg_sum_of_squared_activations(states_table, cycle_duration=None,
+        cycle_start=None, weight_map=None):
     """Computes the average value of the sum of squared activations.
 
     Parameters
     ----------
     states_table : tables.Table
         A pyTables table containing muscle activation time series data.
+    cycle_duration : optional, float
+        If provided, the average will only be over this duration, starting
+        either at the initial time, or at `cycle_start` if provided.
+    cycle_start : optional, float
+        Only used if cycle_duration is not None. The start time of the
+        interval over which to conduct the average.
+    weight_map : dict, optional
+        If you want to weight muscles by, e.g. muscle volume. Keys are muscle
+        names, values are the weights as floats.
 
     Returns
     -------
@@ -232,9 +249,14 @@ def avg_sum_of_squared_activations(states_table):
 
     """
     time = states_table.cols.time
-    duration = time[-1] - time[0]
-    integral = np.trapz(sum_of_squared_activations(states_table), x=time)
-    return integral / duration
+    ssa = sum_of_squared_activations(states_table, weight_map=weight_map)
+    if cycle_duration == None:
+        duration = time[-1] - time[0]
+        integral = np.trapz(ssa, x=time)
+        return integral / duration
+    else:
+        return avg_over_gait_cycle(states_table.cols.time, ssa,
+                cycle_duration, cycle_start=cycle_start)
 
 
 def avg(time, value, init_time=None, final_time=None, interval=None):
@@ -2945,6 +2967,7 @@ class GaitScrutinyReport:
                         lw=1.5)
 
             pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+            pl.xlim(0, 100)
 
         # Title page
         # ----------
@@ -2984,9 +3007,11 @@ class GaitScrutinyReport:
                 title='knee')
         plot_kin(2, 'ankle_angle', label='ankle dorsiflexion', title='ankle')
         pl.xlabel('percent gait cycle')
+        pl.xlim(0, 100)
 
         gs.tight_layout(fkin, rect=[0, 0, 1, 0.95])
         pp.savefig(fkin)
+        pl.close(fkin)
 
         # Joint torques!
         # --------------
@@ -3006,9 +3031,11 @@ class GaitScrutinyReport:
             plot_jt(2, 'ankle_angle',
                     label='ankle dorsiflexion moment', title='ankle')
             pl.xlabel('percent gait cycle')
+            pl.xlim(0, 100)
 
             gs.tight_layout(fjt, rect=[0, 0, 1, 0.95])
             pp.savefig(fjt)
+            pl.close(fjt)
 
         # Muscles!
         # ========
@@ -3029,6 +3056,7 @@ class GaitScrutinyReport:
 
             gs.tight_layout(f, rect=[0, 0, 1, 0.95])
             pp.savefig(f)
+            pl.close(f)
 
         # Define muscles to use for the remaining sets of plots.
         muscle_names = dict()

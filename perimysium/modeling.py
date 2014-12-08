@@ -481,6 +481,8 @@ def add_bhargava_metabolic_probes(model, twitch_ratio_set='gait2392',
         * str: 'Handsfield2014' or 'Ward2009' to use lower body masses from the
           respective paper. NOTE: this set of muscle masses does NOT contain
           ercspn, intobl, or extobl masses. Consider excluding those muscles.
+ad
+ad
         * dict: For muscles in this dict, use the given value as the muscle's
           mass. If the muscle is not specified in this dict, compute the
           muscle's mass from the model's muscle properties.
@@ -910,3 +912,35 @@ class IKTaskSet:
                 weight)
         self.add_ikcoordinatetask('%s_r' % name, do_apply, manual_value,
                 weight)
+
+def muscle_volume_weights(model_filename):
+    """Computes, for each muscle in the model, an estimate of a factor that is
+    proportional tothe muscle's volume: optimal fiber length * max isometric
+    force.
+
+    Parameters
+    ----------
+    model_filename : str
+        Name of the model file from which muscle properties can be extracted.
+
+    Returns
+    -------
+    weight_map : dict
+        Keys are mucsle names, values are weights as floats.
+
+    """
+    weight_map = dict()
+    model = osm.Model(model_filename)
+    mset = model.getMuscles()
+    for imusc in range(mset.getSize()):
+        muscle = mset.get(imusc)
+        length = muscle.getOptimalFiberLength() 
+        area = muscle.getMaxIsometricForce()
+        weight_map[muscle.getName()] = length * area
+    return weight_map
+
+
+
+
+
+
