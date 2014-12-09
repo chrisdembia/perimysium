@@ -3381,21 +3381,23 @@ def plot_opposite_strike_pgc(gl, side, axes=None, *args, **kwargs):
         gl[side + '_strike'] + cycle_duration),
         *args, **kwargs)
 
-def plot_toeoff_pgc(gl, side, axes=None, *args, **kwargs):
-    if axes:
-        ax = axes
-    else:
-        ax = pl
+def toeoff_pgc(gl, side):
     toeoff = gl[side + '_toeoff']
     cycle_duration = (gl.cycle_end - gl.cycle_start)
     while toeoff < gl[side + '_strike']:
         toeoff += cycle_duration
     while toeoff > gl[side + '_strike'] + cycle_duration:
         toeoff -= cycle_duration
-    ax.axvline(percent_duration_single(toeoff,
-        gl[side + '_strike'],
-        gl[side + '_strike'] + cycle_duration),
-        *args, **kwargs)
+    return percent_duration_single(toeoff,
+            gl[side + '_strike'],
+            gl[side + '_strike'] + cycle_duration)
+
+def plot_toeoff_pgc(gl, side, axes=None, *args, **kwargs):
+    if axes:
+        ax = axes
+    else:
+        ax = pl
+    ax.axvline(toeoff_pgc(gl, side), *args, **kwargs)
 
 def plot_pgc(time, data, gl, side='left', axes=None, plot_toeoff=False, *args,
         **kwargs):
@@ -3407,7 +3409,7 @@ def plot_pgc(time, data, gl, side='left', axes=None, plot_toeoff=False, *args,
     else:
         ax = pl
     ax.plot(pgc, ys, *args, **kwargs)
-    
+
     if plot_toeoff:
         plot_toeoff_pgc(gl, side, ax, *args, **kwargs)
 
@@ -3421,15 +3423,27 @@ def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
         data[:, i] = np.interp(output_pgc, pgc, ys, left=np.nan, right=np.nan)
     return output_pgc, nanmean(data, axis=1), nanstd(data, axis=1)
 
+def avg_and_std_toeoff(list_of_dicts):
+    toeoffs = np.empty(len(list_of_dicts))
+    for i, item in enumerate(list_of_dicts):
+        toeoffs[i] = toeoff_pgc(item['gl'], item['side'])
+    return nanmean(toeoffs), nanstd(toeoffs)
+
 def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
-        n_points=400, lw=1.0, alpha=0.5, label=None, *args, **kwargs):
+        n_points=400, lw=1.0, alpha=0.5, label=None, plot_toeoff=False, *args,
+        **kwargs):
 
     pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
             n_points=n_points)
 
+    if plot_toeoff:
+        pl.axvline(avg_and_std_toeoff(list_of_dicts)[0], lw=lw,
+                color='lightgray', zorder=0)
+
     pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
 
     pl.plot(pgc, avg, *args, lw=lw, label=label, **kwargs)
+
 
 
 
