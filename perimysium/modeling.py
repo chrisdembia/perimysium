@@ -186,6 +186,7 @@ twitch_ratios_2392 = {
             'semimem': 0.4925, 'semiten': 0.425,
             'bifemlh': 0.5425, 'bifemsh': 0.529,
             'add_mag1': 0.552, 'add_mag2': 0.552, 'add_mag3': 0.552,
+            'add_mag4': 0.552, # Chris' change to Apoorva's model.
             'glut_max1': 0.55, 'glut_max2': 0.55, 'glut_max3': 0.55,
             'iliacus': 0.5, 'psoas': 0.5, 'rect_fem': 0.3865,
             'vas_med': 0.503, 'vas_int': 0.543, 'vas_lat': 0.455,
@@ -360,6 +361,7 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
         * dict: For muscles in this dict, use the given value as the muscle's
           mass. If the muscle is not specified in this dict, compute the
           muscle's mass from the model's muscle properties.
+    muscle_effort_scaling_factor : float, optional (default: 1.0)
     exclude : list of str's, optional
         List of muscle names to exclude.
 

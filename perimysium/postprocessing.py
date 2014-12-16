@@ -837,8 +837,13 @@ def plot_so_gait_info(so_results_dir):
     pl.subplot2grid(grid_size, (2, 0))
     pl.title('lumbar rotations reserves')
     for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
-        pl.plot(actu['time'], actu['reserve_%s' % coln],
-                label=coln.split('_')[-1])
+        actu_name = 'reserve_%s' % coln
+        if actu_name in actu.dtype.names:
+            pl.plot(actu['time'], actu[actu_name],
+                    label=coln.split('_')[-1])
+        else:
+            # Apoorva's model does not have lumbar muscles.
+            pl.text(0, 0, 'no lumbar reserves', ha='left', va='bottom')
     pl.axhline(0, c='k')
     pl.ylabel('moment (N-m)')
     pl.xlabel('time (s)')
@@ -1016,8 +1021,13 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.subplot2grid((3, 4), (2, 2))
     pl.title('lumbar rotations reserves')
     for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
-        pl.plot(actu['time'], actu['reserve_%s' % coln],
-                label=coln.split('_')[-1])
+        actu_name = 'reserve_%s' % coln
+        if actu_name in actu.dtype.names:
+            pl.plot(actu['time'], actu[actu_name],
+                    label=coln.split('_')[-1])
+        else:
+            # Apoorva's model does not have lumbar muscles.
+            pl.text(0, 0, 'no lumbar reserves', ha='left', va='bottom')
     pl.axhline(0, c='k')
     pl.ylabel('torque (N-m)')
     pl.xlabel('time (s)')
@@ -2911,6 +2921,10 @@ class GaitScrutinyReport:
 
             def plot_a_series(series, label, **kwargs):
 
+                # TODO this next line isn't so great of an idea:
+                if label: pl.ylabel('%s (%s)' % (label, units))
+                if title: pl.title(title, fontsize=12)
+
                 if table == 'joint_torques':
                     thetable = series['joint_torques']
                 else:
@@ -2922,10 +2936,6 @@ class GaitScrutinyReport:
                 if self._do_plot_opposite:
                     plot_opposite_leg(thetable, series, name, mult=mult,
                             **kwargs)
-
-                # TODO this next line isn't so great of an idea:
-                if label: pl.ylabel('%s (%s)' % (label, units))
-                if title: pl.title(title, fontsize=12)
 
             def plot_landmarks(series, ylims, **kwargs):
                 if series['toeoff'] != None:
@@ -3047,12 +3057,15 @@ class GaitScrutinyReport:
             pl.suptitle('MUSCLE %s' % subtitle.upper(), weight='bold')
 
             for loc, name in mset.items():
-                plot_coordinate(gs, loc, table,
-                        pattern % name, title=muscle_names[name], **kwargs)
-                if loc[1] == 0: pl.ylabel(ylabel)
-                if loc[0] == (dims[0] - 1): pl.xlabel('percent gait cycle')
+                try:
+                    plot_coordinate(gs, loc, table,
+                            pattern % name, title=muscle_names[name], **kwargs)
+                    if loc[1] == 0: pl.ylabel(ylabel)
+                    if loc[0] == (dims[0] - 1): pl.xlabel('percent gait cycle')
 
-                if yticks: pl.yticks(yticks)
+                    if yticks: pl.yticks(yticks)
+                except Exception as e:
+                    print("[GaitScrutiny] Can't plot %s." % name)
 
             gs.tight_layout(f, rect=[0, 0, 1, 0.95])
             pp.savefig(f)
@@ -3106,6 +3119,7 @@ class GaitScrutinyReport:
         muscle_names['add_mag1'] = 'adductor magnus 1'
         muscle_names['add_mag2'] = 'adductor magnus 2'
         muscle_names['add_mag3'] = 'adductor magnus 3'
+        muscle_names['add_mag4'] = 'adductor magnus 4'
         muscle_names['add_long'] = 'adductor longus'
         muscle_names['add_brev'] = 'adductor brevis'
 
@@ -3177,12 +3191,14 @@ class GaitScrutinyReport:
             mset3[(2, 0)] = 'glut_min1'
             mset3[(2, 1)] = 'glut_min2'
             mset3[(2, 2)] = 'glut_min3'
-            mset3[(2, 3)] = 'add_long'
 
-            mset3[(3, 0)] = 'add_mag1'
-            mset3[(3, 1)] = 'add_mag2'
-            mset3[(3, 2)] = 'add_mag3'
-            mset3[(3, 3)] = 'add_brev'
+            mset3[(0, 3)] = 'add_mag1'
+            mset3[(1, 3)] = 'add_mag2'
+            mset3[(2, 3)] = 'add_mag3'
+            mset3[(3, 3)] = 'add_mag3'
+
+            mset3[(3, 0)] = 'add_long'
+            mset3[(3, 1)] = 'add_brev'
 
             msubnames = ['key locomotion muscles', 'misc muscles',
                     'remaining hip muscles']
