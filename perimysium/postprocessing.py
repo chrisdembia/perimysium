@@ -1123,7 +1123,7 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
     plot_both_sides((0, 1), 'hip_adduction', [-20, 20])
     plot_both_sides((1, 1), 'hip_flexion', [-30, 50])
     plot_both_sides((2, 1), 'knee_angle', [-10, 90])
-    plot_both_sides((3, 1), 'ankle_angle', [-15, 30])
+    plot_both_sides((3, 1), 'ankle_angle', [-40, 25])
     pl.xlabel('time (% gait cycle)')
 
     pl.tight_layout() #fig) #, rect=[0, 0, 1, 0.95])
