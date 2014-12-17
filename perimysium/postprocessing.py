@@ -1070,6 +1070,65 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.tight_layout()
     return fig
 
+def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
+    """Plots pelvis tilt, pelvis list, pelvis rotation, hip adduction, hip
+    flexion, knee angle, and ankle angle for both limbs.
+
+    Parameters
+    ----------
+    kinematics_q_fpath : str
+        Path to a Kinematics_q.sto file.
+    gl : dataman.GaitLandmarks, optional
+        If provided, the plots are for a single gait cycle.
+
+    Returns
+    -------
+    fig : pylab.figure
+
+    """
+    fig = pl.figure(figsize=(7, 10))
+    dims = (4, 2)
+
+    sto = dataman.storage2numpy(kinematics_q_fpath)
+
+    def plot(time, y, label, side):
+        if gl != None:
+            plot_pgc(time, y, gl, side=side, plot_toeoff=True, label=label)
+        else:
+            pl.plot(time, y, label=label)
+
+    def plot_coord(coord, side='right'):
+        plot(sto['time'], sto[coord], side, side)
+    def plot_one(loc, coord, ylim):
+        ax = pl.subplot2grid(dims, loc)
+        plot_coord(coord)
+        pl.ylim(ylim)
+        pl.axhline(0, color='gray', zorder=0)
+        pl.title(coord)
+    def plot_both_sides(loc, coord_pre, ylim):
+        ax = pl.subplot2grid(dims, loc)
+        for side in ['left', 'right']:
+            coord = '%s_%s' % (coord_pre, side[0])
+            plot_coord(coord, side)
+        pl.legend(frameon=False)
+        pl.ylim(ylim)
+        pl.axhline(0, color='gray', zorder=0)
+        pl.title(coord_pre)
+
+    plot_one((0, 0), 'pelvis_tilt', [-10, 10])
+    plot_one((1, 0), 'pelvis_list', [-15, 15])
+    plot_one((2, 0), 'pelvis_rotation', [-10, 10])
+    pl.xlabel('time (% gait cycle)')
+
+    plot_both_sides((0, 1), 'hip_adduction', [-20, 20])
+    plot_both_sides((1, 1), 'hip_flexion', [-30, 50])
+    plot_both_sides((2, 1), 'knee_angle', [-10, 90])
+    plot_both_sides((3, 1), 'ankle_angle', [-15, 30])
+    pl.xlabel('time (% gait cycle)')
+
+    pl.tight_layout() #fig) #, rect=[0, 0, 1, 0.95])
+    return fig
+
 def plot_kinematics_verification(pErr_table,
         n_max=None, violators_only=False, show_legend=False, big_picture=None):
     """Plots kinematics verification information, with comparisons to "good"
@@ -3356,6 +3415,8 @@ def data_by_pgc(time, data, gl, side='left'):
         strike = gl.left_strike
     elif side == 'right':
         strike = gl.right_strike
+    else:
+        raise Exception("side '%s' not recognized." % side)
 
     cycle_duration = (gl.cycle_end - gl.cycle_start)
 
@@ -3427,7 +3488,10 @@ def plot_pgc(time, data, gl, side='left', axes=None, plot_toeoff=False, *args,
     ax.plot(pgc, ys, *args, **kwargs)
 
     if plot_toeoff:
-        plot_toeoff_pgc(gl, side, ax, *args, **kwargs)
+        if 'color' not in kwargs and 'c' not in kwargs:
+            kwargs['color'] = 'gray'
+        if 'label' in kwargs: kwargs.pop('label')
+        plot_toeoff_pgc(gl, side, ax, *args, zorder=0, **kwargs)
 
 
 def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
