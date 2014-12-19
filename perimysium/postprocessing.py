@@ -346,6 +346,17 @@ def cost_of_transport(subject_mass,
             cycle_start=cycle_start) / (
                     subject_mass * accel_due_to_gravity * forward_speed)
 
+def average_whole_body_power(actu_power, cycle_duration, cycle_start=None,
+        ignore='reserve|^F|^M'):
+    total_power = np.zeros(len(actu_power.cols.time[:]))
+    for coln in actu_power.colnames:
+        if coln != 'time':
+            if ignore == None or re.search(ignore, coln) == None:
+                total_power += actu_power.col(coln)
+    return avg_over_gait_cycle(actu_power.cols.time[:], total_power,
+            cycle_duration, cycle_start=cycle_start)
+
+
 def sorted_maxabs(table, init_time=None, final_time=None, exclude=None,
         include_only=None):
     """Returns sort and argsort for all columns given. The quantity
