@@ -347,12 +347,22 @@ def cost_of_transport(subject_mass,
                     subject_mass * accel_due_to_gravity * forward_speed)
 
 def average_whole_body_power(actu_power, cycle_duration, cycle_start=None,
-        ignore='reserve|^F|^M'):
+        ignore='reserve|^F|^M', sign=None):
+    """sign can be 'positive', 'negative' (total average negative power,
+    returned as a positive number), or None (both)."""
     total_power = np.zeros(len(actu_power.cols.time[:]))
     for coln in actu_power.colnames:
         if coln != 'time':
             if ignore == None or re.search(ignore, coln) == None:
-                total_power += actu_power.col(coln)
+                data = actu_power.col(coln)
+                if sign == None:
+                    total_power += data
+                elif sign == 'positive':
+                    total_power += np.clip(data, 0, np.inf)
+                elif sign == 'negative':
+                    total_power += -np.clip(data, -np.inf, 0)
+                else:
+                    raise Exception("sign is '%s'; unexpected." % sign)
     return avg_over_gait_cycle(actu_power.cols.time[:], total_power,
             cycle_duration, cycle_start=cycle_start)
 
