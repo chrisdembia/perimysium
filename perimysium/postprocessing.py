@@ -1124,6 +1124,7 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
         ax = pl.subplot2grid(dims, loc)
         plot_coord(coord)
         pl.ylim(ylim)
+        pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(coord)
     def plot_both_sides(loc, coord_pre, ylim):
@@ -1133,6 +1134,7 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
             plot_coord(coord, side)
         pl.legend(frameon=False)
         pl.ylim(ylim)
+        pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(coord_pre)
 
