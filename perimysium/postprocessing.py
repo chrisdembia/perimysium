@@ -1136,7 +1136,7 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
         pl.axhline(0, color='gray', zorder=0)
         pl.title(coord_pre)
 
-    plot_one((0, 0), 'pelvis_tilt', [-10, 10])
+    plot_one((0, 0), 'pelvis_tilt', [-20, 10])
     plot_one((1, 0), 'pelvis_list', [-15, 15])
     plot_one((2, 0), 'pelvis_rotation', [-10, 10])
     pl.xlabel('time (% gait cycle)')
