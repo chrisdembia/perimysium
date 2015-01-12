@@ -3277,7 +3277,7 @@ class GaitScrutinyReport:
             mset3[(0, 3)] = 'add_mag1'
             mset3[(1, 3)] = 'add_mag2'
             mset3[(2, 3)] = 'add_mag3'
-            mset3[(3, 3)] = 'add_mag3'
+            mset3[(3, 3)] = 'add_mag4'
 
             mset3[(3, 0)] = 'add_long'
             mset3[(3, 1)] = 'add_brev'
