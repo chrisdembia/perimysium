@@ -1091,7 +1091,8 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.tight_layout()
     return fig
 
-def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
+def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
+        kinematics_q_compare_fpath=None, compare_name=None):
     """Plots pelvis tilt, pelvis list, pelvis rotation, hip adduction, hip
     flexion, knee angle, and ankle angle for both limbs.
 
@@ -1101,6 +1102,12 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
         Path to a Kinematics_q.sto file.
     gl : dataman.GaitLandmarks, optional
         If provided, the plots are for a single gait cycle.
+    kinematics_q_compare_fpath : str, optional
+        Want to compare kinemtaics to another set of kinematics? Provide the
+        kinematics_q file here.
+    compare_name : str, optional
+        The name to use in the legend for the above comparison kinematics. Must
+        be provided if kinematics_q_compare_fpath is provided.
 
     Returns
     -------
@@ -1111,27 +1118,37 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None):
     dims = (4, 2)
 
     sto = dataman.storage2numpy(kinematics_q_fpath)
+    if kinematics_q_compare_fpath:
+        sto2 = dataman.storage2numpy(kinematics_q_compare_fpath)
+        pl.suptitle('transparent lines: %s' % compare_name)
 
-    def plot(time, y, label, side):
+    def plot(time, y, label, side, *args, **kwargs):
         if gl != None:
-            plot_pgc(time, y, gl, side=side, plot_toeoff=True, label=label)
-        else:
-            pl.plot(time, y, label=label)
+            plot_pgc(time, y, gl, side=side, plot_toeoff=True, label=label,
+                    *args, **kwargs)
 
-    def plot_coord(coord, side='right'):
-        plot(sto['time'], sto[coord], side, side)
+        else:
+            pl.plot(time, y, label=label, *args, **kwargs)
+
+    def plot_coord(coord, side='right', *args, **kwargs):
+        if kinematics_q_compare_fpath:
+            plot(sto2['time'], sto2[coord], None, side, alpha=0.5,
+                    *args, **kwargs)
+        plot(sto['time'], sto[coord], side, side,
+                *args, **kwargs)
     def plot_one(loc, coord, ylim):
         ax = pl.subplot2grid(dims, loc)
-        plot_coord(coord)
+        plot_coord(coord, color='blue')
         pl.ylim(ylim)
         pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(coord)
+    colors = {'left': 'blue', 'right': 'red'}
     def plot_both_sides(loc, coord_pre, ylim):
         ax = pl.subplot2grid(dims, loc)
         for side in ['left', 'right']:
             coord = '%s_%s' % (coord_pre, side[0])
-            plot_coord(coord, side)
+            plot_coord(coord, side, color=colors[side])
         pl.legend(frameon=False)
         pl.ylim(ylim)
         pl.xlim(0, 100)
