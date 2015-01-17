@@ -22,6 +22,9 @@ except ImportError, e: print e.message
 try: import numpy as np
 except ImportError, e: print e.message
 
+try: from numpy.lib.recfunctions import append_fields
+except ImportError, e: print e.message
+
 if sys.version_info[0] == 2 and sys.version_info[1] < 6:
     # Taken from /usr/lib/python2.7/posixpath.py
     # This method does not exist prior to python2.6.
@@ -305,7 +308,9 @@ class TRCFile(object):
                     'NumFrames (%i).', len(x), len(y), len(z), self.num_frames)
         self.marker_names += [name]
         self.num_markers += 1
-        self.data[name] = np.concatenate(x, y, z, axis=1)
+        self.data = append_fields(self.data,
+                ['%s_t%s' % (name, s) for s in 'xyz'],
+                [x, y, z], usemask=False)
 
     def marker_exists(self, name):
         """
@@ -332,7 +337,7 @@ class TRCFile(object):
         f.write('PathFileType  4\t(X/Y/Z) %s\n' % os.path.split(fpath)[0])
 
         # Line 2.
-        f.write('DataRate\tCameraRate\NumFrames\tNumMarkers\t'
+        f.write('DataRate\tCameraRate\tNumFrames\tNumMarkers\t'
                 'Units\tOrigDataRate\tOrigDataStartFrame\tOrigNumFrames\n')
 
         # Line 3.
@@ -343,13 +348,13 @@ class TRCFile(object):
 
         # Line 4.
         f.write('Frame#\tTime\t')
-        for imark in self.num_markers:
+        for imark in range(self.num_markers):
             f.write('%s\t\t\t' % self.marker_names[imark])
         f.write('\n')
 
         # Line 5.
         f.write('\t\t')
-        for imark in self.num_markers:
+        for imark in np.arange(self.num_markers) + 1:
             f.write('X%i\tY%s\tZ%s\t' % (imark, imark, imark))
         f.write('\n')
 
@@ -357,12 +362,13 @@ class TRCFile(object):
         f.write('\n')
 
         # Data.
-        for iframe in self.num_frames:
-            f.write('%i' % iframe)
-            f.write('\t%.5f', self.time[iframe])
+        for iframe in range(self.num_frames):
+            f.write('%i' % (iframe + 1))
+            f.write('\t%.5f' % self.time[iframe])
             for mark in self.marker_names:
                 idxs = [mark + '_tx', mark + '_ty', mark + '_tz']
-                f.write('\t%.3f\t%.3f\t%.3f' % (self.data[idxs]))
+                f.write('\t%.3f\t%.3f\t%.3f' % tuple(
+                    self.data[coln][iframe] for coln in idxs))
             f.write('\n')
 
         f.close()
