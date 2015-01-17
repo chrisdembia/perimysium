@@ -3472,6 +3472,9 @@ def data_by_pgc(time, data, gl, side='left'):
 
     if np.any(pgc > 100.0):
         print('Percent gait cycle greater than 100: %f' % np.max(pgc))
+        # TODO DEBUG
+        # TODO import traceback
+        # TODO traceback.print_stack()
     if np.any(pgc > 100.01) or np.any(pgc < 0.0):
         raise Exception('Percent gait cycle out of range.')
 
