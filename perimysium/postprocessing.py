@@ -634,7 +634,7 @@ def rms(array):
     return np.sqrt(np.mean(array**2))
 
 
-def plot_rra_gait_info(rra_results_dir):
+def plot_rra_gait_info(rra_results_dir, gl=None):
     """Plots the information useful to tweaking RRA tasks and actuators:
     residual forces and moments, as well as the kinematics errors that are
     important for gait.
@@ -644,6 +644,8 @@ def plot_rra_gait_info(rra_results_dir):
     rra_results_dir : str
         Path to folder containing results from RRA. We'll grab the
         Actuation_force and pErr Storage files.
+    gl : dataman.GaitLandmarks, optional
+        If provided, the plots are for a single gait cycle.
 
     Returns
     -------
@@ -665,12 +667,46 @@ def plot_rra_gait_info(rra_results_dir):
     def make_pretty_perr(ylabel='rotation error (deg)'):
         pl.axhline(0, c='k')
         pl.ylabel(ylabel)
-        pl.xlabel('time (s)')
-        pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+        pl.xlabel('time (% gait cycle)')
+        pl.xlim(0, 100)
         pl.ylim((-2, 2))
         pl.legend(**legend_kwargs)
         pl.grid(axis='y')
         plot_thresholds(pErr, 1)
+
+    def plot(time, y, side='right', *args, **kwargs):
+        if gl != None:
+            if side == 'r': side = 'right'
+            elif side == 'l': side = 'left'
+            plot_pgc(time, y, gl, side=side, plot_toeoff=True, *args, **kwargs)
+
+        else:
+            pl.plot(time, y, *args, **kwargs)
+
+    # def plot_coord(coord, side='right', *args, **kwargs):
+    #     if kinematics_q_compare_fpath:
+    #         plot(sto2['time'], sto2[coord], None, side, alpha=0.5,
+    #                 *args, **kwargs)
+    #     plot(sto['time'], sto[coord], side, side,
+    #             *args, **kwargs)
+    # def plot_one(loc, coord, ylim):
+    #     ax = pl.subplot2grid(dims, loc)
+    #     plot_coord(coord, color='blue')
+    #     pl.ylim(ylim)
+    #     pl.xlim(0, 100)
+    #     pl.axhline(0, color='gray', zorder=0)
+    #     pl.title(coord)
+    # colors = {'left': 'blue', 'right': 'red'}
+    # def plot_both_sides(loc, coord_pre, ylim):
+    #     ax = pl.subplot2grid(dims, loc)
+    #     for side in ['left', 'right']:
+    #         coord = '%s_%s' % (coord_pre, side[0])
+    #         plot_coord(coord, side, color=colors[side])
+    #     pl.legend(frameon=False)
+    #     pl.ylim(ylim)
+    #     pl.xlim(0, 100)
+    #     pl.axhline(0, color='gray', zorder=0)
+    #     pl.title(coord_pre)
 
     legend_kwargs = {'loc': 'best', 'prop': {'size': 12}, 'frameon': False}
 
@@ -681,12 +717,12 @@ def plot_rra_gait_info(rra_results_dir):
     pl.subplot(621)
     pl.title('residual forces')
     for coln in ['FX', 'FY', 'FZ']:
-        pl.plot(actu['time'], actu[coln], label=coln)
+        plot(actu['time'], actu[coln], label=coln)
     pl.axhline(0, c='k')
     pl.ylabel('force (N)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.grid(axis='y')
     plot_thresholds(actu, 10)
     plot_thresholds(actu, 25)
@@ -694,12 +730,12 @@ def plot_rra_gait_info(rra_results_dir):
     pl.subplot(622)
     pl.title('residual moments')
     for coln in ['MX', 'MY', 'MZ']:
-        pl.plot(actu['time'], actu[coln], label=coln)
+        plot(actu['time'], actu[coln], label=coln)
     pl.axhline(0, c='k')
     pl.ylabel('torque (N-m)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.grid(axis='y')
     plot_thresholds(actu, 30)
 
@@ -707,32 +743,34 @@ def plot_rra_gait_info(rra_results_dir):
     m2cm = 100
     pl.title('pelvis translation')
     for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
-        pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
+        plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
     make_pretty_perr('translation error (cm)')
 
     pl.subplot(624)
     rad2deg = np.rad2deg(1.0)
     pl.title('pelvis rotations')
     for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+        plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     make_pretty_perr()
 
     pl.subplot(625)
     pl.title('left lower limb')
     for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='left',
+                label=coln.split('_')[0])
     make_pretty_perr()
 
     pl.subplot(626)
     pl.title('right lower limb')
     for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='right',
+                label=coln.split('_')[0])
     make_pretty_perr()
 
     pl.subplot(627)
     pl.title('lumbar rotations')
     for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+        plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     make_pretty_perr()
 
     pl.subplot(628)
@@ -740,31 +778,36 @@ def plot_rra_gait_info(rra_results_dir):
     labels = ['rot_r', 'rot_l', 'add_r', 'add_l']
     for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
         'hip_adduction_r', 'hip_adduction_l']):
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
+        plot(pErr['time'], pErr[coln] * rad2deg, side=coln[-1],
+                label=labels[i])
     make_pretty_perr()
 
     pl.subplot(629)
     pl.title('left upper arm')
     for coln in ['arm_flex_l', 'arm_add_l', 'arm_rot_l']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='left',
+                label=coln.split('_')[1])
     make_pretty_perr()
 
     pl.subplot(6, 2, 10)
     pl.title('right upper arm')
     for coln in ['arm_flex_r', 'arm_add_r', 'arm_rot_r']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='right',
+                label=coln.split('_')[1])
     make_pretty_perr()
 
     pl.subplot(6, 2, 11)
     pl.title('left lower arm')
     for coln in ['elbow_flex_l', 'pro_sup_l']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='left',
+                label=coln.split('_')[1])
     make_pretty_perr()
 
     pl.subplot(6, 2, 12)
     pl.title('right lower arm')
     for coln in ['elbow_flex_r', 'pro_sup_r']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[1])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='right',
+                label=coln.split('_')[1])
     make_pretty_perr()
 
     pl.tight_layout()
@@ -1158,6 +1201,7 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
     plot_one((0, 0), 'pelvis_tilt', [-20, 10])
     plot_one((1, 0), 'pelvis_list', [-15, 15])
     plot_one((2, 0), 'pelvis_rotation', [-10, 10])
+    plot_both_sides((3, 0), 'hip_rotation', [-20, 20])
     pl.xlabel('time (% gait cycle)')
 
     plot_both_sides((0, 1), 'hip_adduction', [-15, 15])
