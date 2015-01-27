@@ -80,7 +80,10 @@ class StoragePlotter(HasTraits):
     def __init__(self, stofpath, *args):
         HasTraits.__init__(self, trait_value=True)
         if stofpath.endswith('.sto') or stofpath.endswith('.mot'):
-            self.data = storage2numpy(stofpath)
+            if 'StaticOptimization' in stofpath:
+                self.data = storage2numpy(stofpath, excess_header_entries=2)
+            else:
+                self.data = storage2numpy(stofpath)
         elif stofpath.endswith('.trc'):
             self.data = TRCFile(stofpath).data
         avail_columns = list(self.data.dtype.names)
