@@ -658,11 +658,9 @@ def plot_rra_gait_info(rra_results_dir, gl=None):
         elif fname.endswith('Actuation_force.sto'):
             actu_fpath = os.path.join(rra_results_dir, fname)
 
-    def plot_thresholds(data, val):
-        pl.plot([data['time'][0], data['time'][-1]], [val, val],
-                c=[0.7, 0.7, 0.7])
-        pl.plot([data['time'][0], data['time'][-1]], [-val, -val],
-                c=[0.7, 0.7, 0.7])
+    def plot_thresholds(val):
+        pl.axhline(val, c=[0.7, 0.7, 0.7])
+        pl.axhline(-val, c=[0.7, 0.7, 0.7])
 
     def make_pretty_perr(ylabel='rotation error (deg)'):
         pl.axhline(0, c='k')
@@ -672,7 +670,7 @@ def plot_rra_gait_info(rra_results_dir, gl=None):
         pl.ylim((-2, 2))
         pl.legend(**legend_kwargs)
         pl.grid(axis='y')
-        plot_thresholds(pErr, 1)
+        plot_thresholds(1)
 
     def plot(time, y, side='right', *args, **kwargs):
         if gl != None:
@@ -682,31 +680,6 @@ def plot_rra_gait_info(rra_results_dir, gl=None):
 
         else:
             pl.plot(time, y, *args, **kwargs)
-
-    # def plot_coord(coord, side='right', *args, **kwargs):
-    #     if kinematics_q_compare_fpath:
-    #         plot(sto2['time'], sto2[coord], None, side, alpha=0.5,
-    #                 *args, **kwargs)
-    #     plot(sto['time'], sto[coord], side, side,
-    #             *args, **kwargs)
-    # def plot_one(loc, coord, ylim):
-    #     ax = pl.subplot2grid(dims, loc)
-    #     plot_coord(coord, color='blue')
-    #     pl.ylim(ylim)
-    #     pl.xlim(0, 100)
-    #     pl.axhline(0, color='gray', zorder=0)
-    #     pl.title(coord)
-    # colors = {'left': 'blue', 'right': 'red'}
-    # def plot_both_sides(loc, coord_pre, ylim):
-    #     ax = pl.subplot2grid(dims, loc)
-    #     for side in ['left', 'right']:
-    #         coord = '%s_%s' % (coord_pre, side[0])
-    #         plot_coord(coord, side, color=colors[side])
-    #     pl.legend(frameon=False)
-    #     pl.ylim(ylim)
-    #     pl.xlim(0, 100)
-    #     pl.axhline(0, color='gray', zorder=0)
-    #     pl.title(coord_pre)
 
     legend_kwargs = {'loc': 'best', 'prop': {'size': 12}, 'frameon': False}
 
@@ -724,8 +697,8 @@ def plot_rra_gait_info(rra_results_dir, gl=None):
     pl.ylim((-40, 40))
     pl.xlim(0, 100)
     pl.grid(axis='y')
-    plot_thresholds(actu, 10)
-    plot_thresholds(actu, 25)
+    plot_thresholds(10)
+    plot_thresholds(25)
 
     pl.subplot(622)
     pl.title('residual moments')
@@ -737,7 +710,7 @@ def plot_rra_gait_info(rra_results_dir, gl=None):
     pl.ylim((-40, 40))
     pl.xlim(0, 100)
     pl.grid(axis='y')
-    plot_thresholds(actu, 30)
+    plot_thresholds(30)
 
     pl.subplot(623)
     m2cm = 100
@@ -936,7 +909,7 @@ def plot_so_gait_info(so_results_dir):
     return fig
 
 
-def plot_cmc_gait_info(cmc_results_dir):
+def plot_cmc_gait_info(cmc_results_dir, gl=None):
     """
 
     Parameters
@@ -944,6 +917,8 @@ def plot_cmc_gait_info(cmc_results_dir):
     cmc_results_dir : str
         Path to folder containing results from CMC. We'll grab the
         Actuation_force and pErr Storage files.
+    gl : dataman.GaitLandmarks, optional
+        If provided, the plots are for a single gait cycle.
 
     Returns
     -------
@@ -956,11 +931,18 @@ def plot_cmc_gait_info(cmc_results_dir):
         elif fname.endswith('Actuation_force.sto'):
             actu_fpath = os.path.join(cmc_results_dir, fname)
 
-    def plot_thresholds(data, val):
-        pl.plot([data['time'][0], data['time'][-1]], [val, val],
-                c=[0.7, 0.7, 0.7])
-        pl.plot([data['time'][0], data['time'][-1]], [-val, -val],
-                c=[0.7, 0.7, 0.7])
+    def plot_thresholds(val):
+        pl.axhline(val, c=[0.7, 0.7, 0.7])
+        pl.axhline(-val, c=[0.7, 0.7, 0.7])
+
+    def plot(time, y, side='right', *args, **kwargs):
+        if gl != None:
+            if side == 'r': side = 'right'
+            elif side == 'l': side = 'left'
+            plot_pgc(time, y, gl, side=side, plot_toeoff=True, *args, **kwargs)
+
+        else:
+            pl.plot(time, y, *args, **kwargs)
 
     legend_kwargs = {'loc': 'best', 'prop': {'size': 12}}
 
@@ -971,123 +953,125 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.subplot2grid((3, 4), (0, 2))
     pl.title('residual forces')
     for coln in ['FX', 'FY', 'FZ']:
-        pl.plot(actu['time'], actu[coln], label=coln)
+        plot(actu['time'], actu[coln], label=coln)
     pl.axhline(0, c='k')
     pl.ylabel('force (N)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.grid(axis='y')
-    plot_thresholds(actu, 10)
-    plot_thresholds(actu, 25)
+    plot_thresholds(10)
+    plot_thresholds(25)
 
     pl.subplot2grid((3, 4), (0, 3))
     pl.title('residual moments')
     for coln in ['MX', 'MY', 'MZ']:
-        pl.plot(actu['time'], actu[coln], label=coln)
+        plot(actu['time'], actu[coln], label=coln)
     pl.axhline(0, c='k')
     pl.ylabel('torque (N-m)')
     pl.legend(**legend_kwargs)
     pl.ylim((-40, 40))
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.grid(axis='y')
-    plot_thresholds(actu, 30)
+    plot_thresholds(30)
 
     pl.subplot2grid((3, 4), (0, 0))
     m2cm = 100
     pl.title('pelvis translation')
     for coln in ['pelvis_tx', 'pelvis_ty', 'pelvis_tz']:
-        pl.plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
+        plot(pErr['time'], pErr[coln] * m2cm, label=coln[-1])
     pl.axhline(0, c='k')
     pl.ylabel('translation error (cm)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-2, 2))
     pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    plot_thresholds(1)
 
     pl.subplot2grid((3, 4), (0, 1))
     rad2deg = np.rad2deg(1.0)
     pl.title('pelvis rotations')
     for coln in ['pelvis_tilt', 'pelvis_list', 'pelvis_rotation']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+        plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     pl.axhline(0, c='k')
     pl.ylabel('rotation error (deg)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-2, 2))
     pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    plot_thresholds(1)
 
     pl.subplot2grid((3, 4), (1, 0))
     pl.title('left lower limb')
     for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='left',
+                label=coln.split('_')[0])
     pl.axhline(0, c='k')
     pl.ylabel('rotation error (deg)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-2, 2))
     pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    plot_thresholds(1)
 
     pl.subplot2grid((3, 4), (1, 2))
     pl.title('left lower limb reserves')
     for coln in ['hip_flexion_l', 'knee_angle_l', 'ankle_angle_l']:
-        pl.plot(actu['time'], actu['reserve_%s' % coln],
+        plot(actu['time'], actu['reserve_%s' % coln], side='left',
                 label=coln.split('_')[0])
     pl.axhline(0, c='k')
     pl.ylabel('torque (N-m)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-25, 25))
     pl.grid(axis='y')
-    plot_thresholds(actu, 10)
+    plot_thresholds(10)
 
     pl.subplot2grid((3, 4), (1, 1))
     pl.title('right lower limb')
     for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[0])
+        plot(pErr['time'], pErr[coln] * rad2deg, side='right',
+                label=coln.split('_')[0])
     pl.axhline(0, c='k')
     pl.ylabel('rotation error (deg)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-2, 2))
     pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    plot_thresholds(1)
 
     pl.subplot2grid((3, 4), (1, 3))
     pl.title('right lower limb reserves')
     for coln in ['hip_flexion_r', 'knee_angle_r', 'ankle_angle_r']:
-        pl.plot(actu['time'], actu['reserve_%s' % coln],
+        plot(actu['time'], actu['reserve_%s' % coln], side='right',
                 label=coln.split('_')[0])
     pl.axhline(0, c='k')
     pl.ylabel('torque (N-m)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-25, 25))
     pl.grid(axis='y')
-    plot_thresholds(actu, 10)
+    plot_thresholds(10)
 
     pl.subplot2grid((3, 4), (2, 0))
     pl.title('lumbar rotations')
     for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
+        plot(pErr['time'], pErr[coln] * rad2deg, label=coln.split('_')[-1])
     pl.axhline(0, c='k')
     pl.ylabel('rotation error (deg)')
     pl.xlabel('time (s)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-2, 2))
     pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    plot_thresholds(1)
 
     pl.subplot2grid((3, 4), (2, 2))
     pl.title('lumbar rotations reserves')
     for coln in ['lumbar_bending', 'lumbar_extension', 'lumbar_rotation']:
         actu_name = 'reserve_%s' % coln
         if actu_name in actu.dtype.names:
-            pl.plot(actu['time'], actu[actu_name],
+            plot(actu['time'], actu[actu_name],
                     label=coln.split('_')[-1])
         else:
             # Apoorva's model does not have lumbar muscles.
@@ -1096,40 +1080,41 @@ def plot_cmc_gait_info(cmc_results_dir):
     pl.ylabel('torque (N-m)')
     pl.xlabel('time (s)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-25, 25))
     pl.grid(axis='y')
-    plot_thresholds(actu, 10)
+    plot_thresholds(10)
 
     pl.subplot2grid((3, 4), (2, 1))
     pl.title('hips')
     labels = ['rot_r',' rot_l', 'add_r',' add_l']
     for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
         'hip_adduction_r', 'hip_adduction_l']):
-        pl.plot(pErr['time'], pErr[coln] * rad2deg, label=labels[i])
+        plot(pErr['time'], pErr[coln] * rad2deg, side=coln[-1], label=labels[i])
     pl.axhline(0, c='k')
     pl.ylabel('rotation error (deg)')
     pl.xlabel('time (s)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=pErr['time'][0], xmax=pErr['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-2, 2))
     pl.grid(axis='y')
-    plot_thresholds(pErr, 1)
+    plot_thresholds(1)
 
     pl.subplot2grid((3, 4), (2, 3))
     pl.title('hip reserves')
     labels = ['rot_r',' rot_l', 'add_r',' add_l']
     for i, coln in enumerate(['hip_rotation_r', 'hip_rotation_l',
         'hip_adduction_r', 'hip_adduction_l']):
-        pl.plot(actu['time'], actu['reserve_%s' % coln], label=labels[i])
+        plot(actu['time'], actu['reserve_%s' % coln], side=coln[-1],
+                label=labels[i])
     pl.axhline(0, c='k')
     pl.ylabel('torque (N-m)')
     pl.xlabel('time (s)')
     pl.legend(**legend_kwargs)
-    pl.xlim(xmin=actu['time'][0], xmax=actu['time'][-1])
+    pl.xlim(0, 100)
     pl.ylim((-25, 25))
     pl.grid(axis='y')
-    plot_thresholds(actu, 10)
+    plot_thresholds(10)
 
     pl.tight_layout()
     return fig
