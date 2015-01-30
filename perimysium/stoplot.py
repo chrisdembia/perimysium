@@ -5,6 +5,7 @@ http://wiki.scipy.org/Cookbook/EmbeddingInTraitsGUI
 http://code.enthought.com/projects/traits/docs/html/_static/mpl_figure_editor.py
 https://github.com/enthought/traitsui/blob/master/examples/demo/Standard_Editors/CheckListEditor_simple_demo.py
 http://stackoverflow.com/questions/16663908/enthought-traits-ui-add-values-dynamically-to-values-trait-of-checklisteditor
+http://stackoverflow.com/questions/23650049/traitsui-checklisteditor-changing-the-case-of-values
 """
 
 import sys
@@ -19,9 +20,11 @@ matplotlib.use('WXAgg')
 from matplotlib.backends.backend_wxagg import FigureCanvasWxAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_wx import NavigationToolbar2Wx
+from matplotlib import pyplot as plt
 
 from traits.api import HasTraits, Any, Instance, List, Str, on_trait_change
-from traitsui.api import View, Item, HGroup, CheckListEditor
+from traitsui.api import View, HSplit, Item, Group, HGroup, VGroup, \
+        CheckListEditor, HFlow, SetEditor
 from traitsui.wx.editor import Editor
 from traitsui.wx.basic_editor_factory import BasicEditorFactory
 
@@ -29,7 +32,8 @@ from dataman import storage2numpy, TRCFile
 
 class _MPLFigureEditor(Editor):
 
-    scrollable  = True
+    scrollable = True
+    canvas = Instance(FigureCanvas)
 
     def init(self, parent):
         self.control = self._create_canvas(parent)
@@ -45,9 +49,9 @@ class _MPLFigureEditor(Editor):
         sizer = wx.BoxSizer(wx.VERTICAL)
         panel.SetSizer(sizer)
         # matplotlib commands to create a canvas
-        mpl_control = FigureCanvas(panel, -1, self.value)
-        sizer.Add(mpl_control, 1, wx.LEFT | wx.TOP | wx.GROW)
-        toolbar = NavigationToolbar2Wx(mpl_control)
+        self.canvas = FigureCanvas(panel, -1, self.value)
+        sizer.Add(self.canvas, 1, wx.LEFT | wx.TOP | wx.GROW)
+        toolbar = NavigationToolbar2Wx(self.canvas)
         sizer.Add(toolbar, 0, wx.EXPAND)
         self.value.canvas.SetMinSize((10,10))
         return panel
@@ -61,16 +65,20 @@ class StoragePlotter(HasTraits):
     figure = Instance(Figure, ())
     avail_columns = List(Str)
     columns = List(
-            editor=CheckListEditor(name='avail_columns',
-                format_func=lambda x: x))
+            editor=SetEditor(name='avail_columns',
+                format_func=lambda x: x,
+                ),
+            )
 
     view = View(
-            HGroup(
+            HSplit(
                 Item('figure', editor=MPLFigureEditor(),
                     show_label=False
                     ),
-                Item('columns', style='custom'),
-    #            scrollable=True,
+                Item('columns', style='custom',
+                    show_label=False,
+                    ),
+                            scrollable=True,
                 ),
             width=700,
             height=400,
@@ -92,9 +100,10 @@ class StoragePlotter(HasTraits):
 
         self.axes = self.figure.add_subplot(111)
 
-        for arg in args:
-            self.columns.append(arg)
-            self._columns_changed()
+        # TODO
+        #for arg in args:
+        #    self.columns.append(arg)
+        #    self._columns_changed()
 
     @on_trait_change('columns')
     def _columns_changed(self):
@@ -103,6 +112,7 @@ class StoragePlotter(HasTraits):
             self.axes.plot(self.data['time'], self.data[name], label=name)
         self.axes.set_xlabel('time (s)')
         self.axes.legend(loc='best')
+        self.figure.canvas.draw()
 
 def start_plotter(*args, **kwargs):
     """TODO"""
