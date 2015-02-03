@@ -11,6 +11,7 @@ import re
 
 import numpy as np
 import matplotlib
+import matplotlib.pyplot as plt
 import pylab as pl
 import tables
 from scipy.signal import butter, filtfilt
@@ -2423,8 +2424,10 @@ def plot_joint_torque_contributions(muscle_contrib_table,
         joint-level inverse dynamics results (such as RRA's Actuation_force
         table)? Then provide that total joint torque here! Must be a table, so
         we can access the associated time Column.
-    muscles : list of str's
-        Plot only the contributions of these muscles.
+    muscles : list of str's, or float
+        If list of str's, plot only the contributions of these muscles. If
+        float, plot only the muscles whose rms((total - column) / total) is
+        greater than or equal to the given number.
     plot_sum_of_selected_muscles : bool, optional (default: False)
         Also plot the sum of contribution of selected muscles.
     gl : dataman.GaitLandmarks or similar, optional.
@@ -2468,32 +2471,51 @@ def plot_joint_torque_contributions(muscle_contrib_table,
         if cname != 'time':
             total_sum += table.col(cname)
 
+    rmstotal = rms(total_sum)
+
     # Plot individual muscle contributions.
     if plot_sum_of_selected_muscles:
         sum_selected = 0.0 * time[:]
+
+    selected_cnames = list()
     for cname in table.colnames:
-        if ((cname != 'time') and (abs(avg(time, table.col(cname))) >
-            threshold) and (muscles == None or cname in muscles)):
+        column = table.col(cname)
+        if cname != 'time' and rms(column) > threshold:
             # time column is not a muscle; only look for non-zero
             # contributions.
-            plot(time, table.col(cname), label=cname)
+            if muscles == None or (
+                    (type(muscles) != float and cname in muscles) or
+                    (type(muscles) == float and
+                        (rms((total_sum - column) / total_sum) >= muscles))
+                    #(type(muscles) == float and 
+                    #    max(abs(column) / abstotal) >= muscles)
+                    ):
 
-            if plot_sum_of_selected_muscles:
-                sum_selected += table.col(cname)
+                selected_cnames += [cname]
+
+    ax = pl.gca()
+    colormap = plt.get_cmap('gist_rainbow')
+    ax.set_color_cycle(
+            [colormap(k) for k in np.linspace(0, 1, len(selected_cnames))])
+
+    for cname in selected_cnames:
+        plot(time, table.col(cname), label=cname)
+        if plot_sum_of_selected_muscles:
+            sum_selected += table.col(cname)
 
     if plot_sum_of_selected_muscles:
         # 'above' because they appear in the legend above the legend entry
         # for this plot.
-        plot(time, sum_selected, label='sum of muscles above', lw=2, color='r')
+        plot(time, sum_selected, label='sum muscles above', lw=2, color='r')
 
     # Plot total on top of individual muscle contributions.
-    plot(time, total_sum, label='sum of all muscles', lw=2, color='b')
+    plot(time, total_sum, label='sum all muscles', lw=2, color='b')
 
     # Compare to given total.
     # -----------------------
     if total_joint_torque != None:
         plot(total_joint_torque.table.cols.time, total_joint_torque,
-                label='total joint torque', lw=2, color='k')
+                label='total joint moment', lw=2, color='k')
 
     if gl is not None:
         plot_toeoff_pgc(gl, side, color='k')
