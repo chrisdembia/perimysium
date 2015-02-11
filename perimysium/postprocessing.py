@@ -762,35 +762,38 @@ def plot_rra_gait_info(rra_results_dir, gl=None):
                 label=labels[i])
     make_pretty_perr()
 
-    pl.subplot(629)
-    pl.title('left upper arm')
-    for coln in ['arm_flex_l', 'arm_add_l', 'arm_rot_l']:
-        plot(pErr['time'], pErr[coln] * rad2deg, side='left',
-                label=coln.split('_')[1])
-    make_pretty_perr()
-
-    pl.subplot(6, 2, 10)
-    pl.title('right upper arm')
-    for coln in ['arm_flex_r', 'arm_add_r', 'arm_rot_r']:
-        plot(pErr['time'], pErr[coln] * rad2deg, side='right',
-                label=coln.split('_')[1])
-    make_pretty_perr()
-
-    pl.subplot(6, 2, 11)
-    pl.title('left lower arm')
-    for coln in ['elbow_flex_l', 'pro_sup_l']:
-        if coln in pErr.dtype.names:
+    try:
+        pl.subplot(629)
+        pl.title('left upper arm')
+        for coln in ['arm_flex_l', 'arm_add_l', 'arm_rot_l']:
             plot(pErr['time'], pErr[coln] * rad2deg, side='left',
                     label=coln.split('_')[1])
-    make_pretty_perr()
-
-    pl.subplot(6, 2, 12)
-    pl.title('right lower arm')
-    for coln in ['elbow_flex_r', 'pro_sup_r']:
-        if coln in pErr.dtype.names:
+        make_pretty_perr()
+    
+        pl.subplot(6, 2, 10)
+        pl.title('right upper arm')
+        for coln in ['arm_flex_r', 'arm_add_r', 'arm_rot_r']:
             plot(pErr['time'], pErr[coln] * rad2deg, side='right',
                     label=coln.split('_')[1])
-    make_pretty_perr()
+        make_pretty_perr()
+    
+        pl.subplot(6, 2, 11)
+        pl.title('left lower arm')
+        for coln in ['elbow_flex_l', 'pro_sup_l']:
+            if coln in pErr.dtype.names:
+                plot(pErr['time'], pErr[coln] * rad2deg, side='left',
+                        label=coln.split('_')[1])
+        make_pretty_perr()
+    
+        pl.subplot(6, 2, 12)
+        pl.title('right lower arm')
+        for coln in ['elbow_flex_r', 'pro_sup_r']:
+            if coln in pErr.dtype.names:
+                plot(pErr['time'], pErr[coln] * rad2deg, side='right',
+                        label=coln.split('_')[1])
+        make_pretty_perr()
+    except:
+        print("Could not plot arms.")
 
     pl.tight_layout()
     return fig
