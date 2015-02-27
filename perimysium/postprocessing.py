@@ -1153,7 +1153,7 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
     gl : dataman.GaitLandmarks, optional
         If provided, the plots are for a single gait cycle.
     kinematics_q_compare_fpath : str, optional
-        Want to compare kinemtaics to another set of kinematics? Provide the
+        Want to compare kinematics to another set of kinematics? Provide the
         kinematics_q file here.
     compare_name : str, optional
         The name to use in the legend for the above comparison kinematics. Must
@@ -1208,6 +1208,85 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
     plot_one((0, 0), 'pelvis_tilt', [-20, 10])
     plot_one((1, 0), 'pelvis_list', [-15, 15])
     plot_one((2, 0), 'pelvis_rotation', [-10, 10])
+    plot_both_sides((3, 0), 'hip_rotation', [-20, 20])
+    pl.xlabel('time (% gait cycle)')
+
+    plot_both_sides((0, 1), 'hip_adduction', [-15, 15])
+    plot_both_sides((1, 1), 'hip_flexion', [-30, 50])
+    plot_both_sides((2, 1), 'knee_angle', [-10, 90])
+    plot_both_sides((3, 1), 'ankle_angle', [-40, 25])
+    pl.xlabel('time (% gait cycle)')
+
+    pl.tight_layout() #fig) #, rect=[0, 0, 1, 0.95])
+    return fig
+
+def plot_lower_limb_kinetics(kinetics_q_fpath, gl=None,
+        kinetics_q_compare_fpath=None, compare_name=None):
+    """Plots pelvis tilt, pelvis list, pelvis rotation, hip adduction, hip
+    flexion, knee, and ankle moments for both limbs.
+
+    Parameters
+    ----------
+    kinetics_q_fpath : str
+        Path to an Actuation_force.sto file.
+    gl : dataman.GaitLandmarks, optional
+        If provided, the plots are for a single gait cycle.
+    kinetics_q_compare_fpath : str, optional
+        Want to compare kinetics to another set of kinetics? Provide the
+        kinetics_q file here.
+    compare_name : str, optional
+        The name to use in the legend for the above comparison kinetics. Must
+        be provided if kinetics_q_compare_fpath is provided.
+
+    Returns
+    -------
+    fig : pylab.figure
+
+    """
+    fig = pl.figure(figsize=(7, 10))
+    dims = (4, 2)
+
+    sto = dataman.storage2numpy(kinetics_q_fpath)
+    if kinetics_q_compare_fpath:
+        sto2 = dataman.storage2numpy(kinetics_q_compare_fpath)
+        pl.suptitle('transparent lines: %s' % compare_name)
+
+    def plot(time, y, label, side, *args, **kwargs):
+        if gl != None:
+            plot_pgc(time, y, gl, side=side, plot_toeoff=True, label=label,
+                    *args, **kwargs)
+
+        else:
+            pl.plot(time, y, label=label, *args, **kwargs)
+
+    def plot_coord(coord, side='right', *args, **kwargs):
+        if kinetics_q_compare_fpath:
+            plot(sto2['time'], sto2[coord], None, side, alpha=0.5,
+                    *args, **kwargs)
+        plot(sto['time'], sto[coord], side, side,
+                *args, **kwargs)
+    def decorate_axes(ylim, title):
+        # TODO pl.ylim(ylim)
+        pl.xlim(0, 100)
+        pl.axhline(0, color='gray', zorder=0)
+        pl.title(title)
+
+    def plot_one(loc, coord, ylim):
+        ax = pl.subplot2grid(dims, loc)
+        plot_coord(coord, color='blue')
+        decorate_axes(ylim, coord)
+    colors = {'left': 'blue', 'right': 'red'}
+    def plot_both_sides(loc, coord_pre, ylim):
+        ax = pl.subplot2grid(dims, loc)
+        for side in ['left', 'right']:
+            coord = '%s_%s' % (coord_pre, side[0])
+            plot_coord(coord, side, color=colors[side])
+        pl.legend(frameon=False)
+        decorate_axes(ylim, coord_pre)
+
+    #plot_one((0, 0), 'pelvis_tilt', [-20, 10])
+    #plot_one((1, 0), 'pelvis_list', [-15, 15])
+    #plot_one((2, 0), 'pelvis_rotation', [-10, 10])
     plot_both_sides((3, 0), 'hip_rotation', [-20, 20])
     pl.xlabel('time (% gait cycle)')
 
@@ -3236,7 +3315,8 @@ class GaitScrutinyReport:
 
                     if yticks: pl.yticks(yticks)
                 except Exception as e:
-                    print("[GaitScrutiny] Can't plot %s." % name)
+                    print("[GaitScrutiny] Can't plot %s: %s" % (
+                        name, e.message))
 
             gs.tight_layout(f, rect=[0, 0, 1, 0.95])
             pp.savefig(f)
