@@ -97,8 +97,26 @@ def marker_error(model_filepath, states_storage, marker_trc_filepath):
 
     return marker_err
 
-def plot_marker_error(output_filepath, marker_names, *args, **kwargs):
+def plot_marker_error(output_filepath, marker_names, ymax, gl, *args,
+        **kwargs):
     data = marker_error(*args, **kwargs)
+
+    def xlim(times):
+        if gl != None:
+            pl.xlim(0, 100)
+            pl.xlabel('time (% gait cycle)')
+        else:
+            pl.xlim(times[0], times[-1])
+            pl.xlabel('time (seconds)')
+
+    def plot(time, y, side='right', *args, **kwargs):
+        if gl != None:
+            if side.lower() == 'r': side = 'right'
+            elif side.lower() == 'l': side = 'left'
+            plot_pgc(time, y, gl, side=side, plot_toeoff=True, *args, **kwargs)
+
+        else:
+            pl.plot(time, y, *args, **kwargs)
 
     fig = pl.figure(figsize=(12, 4 * np.ceil(len(marker_names) * 0.5)))
     for imark, marker_name in enumerate(marker_names):
@@ -106,14 +124,13 @@ def plot_marker_error(output_filepath, marker_names, *args, **kwargs):
         if marker_name[0] == '.':
             for side in ['R', 'L']:
                 name = '%s%s' % (side, marker_name)
-                pl.plot(data['time'], 100 * data[name], label=name)
+                plot(data['time'], 100 * data[name], side, label=name)
         else:
-            pl.plot(data['time'], 100 * data[marker_name], label=marker_name)
+            plot(data['time'], 100 * data[marker_name], label=marker_name)
         pl.legend(frameon=False, loc='best')
-        pl.ylim(ymin=0)
-        pl.xlim(data['time'][0], data['time'][-1])
+        pl.ylim(ymin=0, ymax=ymax)
+        xlim(data['time'])
         pl.ylabel('marker error (cm)')
-        pl.xlabel('time (% gait cycle)')
 
     pl.tight_layout()
     fig.savefig(output_filepath)
