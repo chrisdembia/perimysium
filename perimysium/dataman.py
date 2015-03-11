@@ -312,6 +312,12 @@ class TRCFile(object):
                 ['%s_t%s' % (name, s) for s in 'xyz'],
                 [x, y, z], usemask=False)
 
+    def marker_at(self, name, time):
+        x = np.interp(time, self.time, self.data[name + '_tx'])
+        y = np.interp(time, self.time, self.data[name + '_ty'])
+        z = np.interp(time, self.time, self.data[name + '_tz'])
+        return [x, y, z]
+
     def marker_exists(self, name):
         """
         Returns

@@ -18,6 +18,7 @@ from scipy.signal import butter, filtfilt
 from scipy.stats import nanmean, nanstd
 
 from perimysium import dataman
+from perimysium import modeling
 
 def savefigtolog(figname, *args, **kwargs):
     pl.savefig(os.path.join(os.environ['LOGFIGS'], figname), *args, **kwargs)
@@ -25,6 +26,104 @@ def savefigtolog(figname, *args, **kwargs):
 
 def nearest_index(array, val):
     return np.abs(array - val).argmin()
+
+def marker_error(model_filepath, states_storage, marker_trc_filepath):
+    """Creates an ndarray containing time histories of marker errors between
+    experimental marker trajectories and joint-space kinematics (from RRA
+    or CMC).
+
+    Parameters
+    ----------
+    model_filepath : opensim.Model
+        Model used to generate the joint-space kinematics. Must contain
+        opensim.Marker's.
+    states_storage : str
+        A Storage file containing joint space kinematics.
+    marker_trc_filepath : str
+        The path to a TRCFile containing experimental marker trajectories.
+
+    Returns
+    -------
+    marker_err : numpy.ndarray
+        Each entry in the ndarray contains the error for a marker. We include
+        only the markers that are present in the model and the TRCFile.
+
+    """
+    import opensim
+    marker_names = list()
+    m = opensim.Model(model_filepath)
+    trc = dataman.TRCFile(marker_trc_filepath)
+    for i in range(m.getMarkerSet().getSize()):
+        model_marker_name = m.getMarkerSet().get(i).getName()
+        if trc.marker_exists(model_marker_name):
+            # Model marker has corresponding experimental data.
+            marker_names.append(model_marker_name)
+
+    engine = m.getSimbodyEngine()
+
+    data = dict()
+    for mname in marker_names:
+        data[mname] = []
+
+    def marker_error_for_frame(model, state, data, marker_names, trc):
+        for mname in marker_names:
+            marker = model.getMarkerSet().get(mname)
+            modelMarkerPosInGround = opensim.Vec3()
+            engine.transformPosition(state,
+                    marker.getBody(), marker.getOffset(),
+                    model.getGroundBody(), modelMarkerPosInGround)
+            expMarkerPosInGround = trc.marker_at(mname, state.getTime())
+
+            a = modelMarkerPosInGround
+            b = np.array(expMarkerPosInGround) * 0.001
+            distance = np.sqrt(
+                    (a.get(0) - b[0])**2 +
+                    (a.get(1) - b[1])**2 +
+                    (a.get(2) - b[2])**2
+                    )
+            data[mname].append(distance)
+
+    time, _ = modeling.analysis(m, states_storage,
+            lambda m, s: marker_error_for_frame(m, s, data, marker_names, trc)
+            )
+
+    n_times = len(data[marker_names[0]])
+    marker_err = np.empty(n_times, dtype={'names': ['time'] + marker_names,
+        'formats': (len(marker_names) + 1) * ['f4']})
+
+    marker_err['time'] = time
+    for mname in marker_names:
+        marker_err[mname] = data[mname]
+
+    return marker_err
+
+def plot_marker_error(output_filepath, marker_names, *args, **kwargs):
+    data = marker_error(*args, **kwargs)
+
+    fig = pl.figure(figsize=(12, 4 * np.ceil(len(marker_names) * 0.5)))
+    for imark, marker_name in enumerate(marker_names):
+        pl.subplot(np.ceil(len(marker_names) * 0.5), 2, imark + 1)
+        if marker_name[0] == '.':
+            for side in ['R', 'L']:
+                name = '%s%s' % (side, marker_name)
+                pl.plot(data['time'], 100 * data[name], label=name)
+        else:
+            pl.plot(data['time'], 100 * data[marker_name], label=marker_name)
+        pl.legend(frameon=False, loc='best')
+        pl.ylim(ymin=0)
+        pl.xlim(data['time'][0], data['time'][-1])
+        pl.ylabel('marker error (cm)')
+        pl.xlabel('time (% gait cycle)')
+
+    pl.tight_layout()
+    fig.savefig(output_filepath)
+
+def print_marker_error(name, output_filepath, *args, **kwargs):
+    """Calls marker_error() and prints the result to a storage file."""
+
+    data = marker_error(*args, **kwargs)
+    dataman.ndarray2storage(data, output_filepath, name=name)
+
 
 def filter_emg(raw_signal, sampling_rate, bandpass_order=6,
         bandpass_lower_frequency=50, bandpass_upper_frequency=500,
