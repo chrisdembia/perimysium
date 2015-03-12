@@ -1390,8 +1390,10 @@ def _populate_table(h5file, group, table_name, filepath, replacements={}):
                     title_row[i] = regex.sub(rep, title_row[i])
 
             # TODO Hack to deal with bug in static optimization.
-            if 'Right_GRF' in title_row: title_row.remove('Right_GRF')
-            if 'Left_GRF' in title_row: title_row.remove('Left_GRF')
+            for bad_colname in ['Right_GRF', 'Left_GRF',
+                    'Right_GRF_transformedP', 'Left_GRF_transformedP']:
+                if bad_colname in title_row:
+                    title_row.remove(bad_colname)
 
             take_header = False
 
