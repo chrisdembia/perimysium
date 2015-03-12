@@ -131,6 +131,11 @@ def plot_marker_error(output_filepath, marker_names, ymax, gl, *args,
         pl.ylim(ymin=0, ymax=ymax)
         xlim(data['time'])
         pl.ylabel('marker error (cm)')
+        pl.axhline(1, c='gray', ls='--')
+        pl.axhline(2, c='gray', ls='--')
+        pl.axhline(3, c='gray', ls='--')
+        pl.axhline(4, c='gray', ls='--')
+        pl.axhline(6, c='gray', ls='--')
 
     pl.tight_layout()
     fig.savefig(output_filepath)
@@ -1288,6 +1293,12 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
         sto2 = dataman.storage2numpy(kinematics_q_compare_fpath)
         pl.suptitle('transparent lines: %s' % compare_name)
 
+    def common():
+        pl.minorticks_on()
+        pl.grid(b=True, which='major', axis='y', color='gray', linestyle='--')
+        pl.grid(b=True, which='minor', axis='y', color='gray', linestyle=':')
+        pl.xlim(0, 100)
+
     def plot(time, y, label, side, *args, **kwargs):
         if gl != None:
             plot_pgc(time, y, gl, side=side, plot_toeoff=True, label=label,
@@ -1306,9 +1317,9 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
         ax = pl.subplot2grid(dims, loc)
         plot_coord(coord, color='blue')
         pl.ylim(ylim)
-        pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(coord)
+        common()
     colors = {'left': 'blue', 'right': 'red'}
     def plot_both_sides(loc, coord_pre, ylim):
         ax = pl.subplot2grid(dims, loc)
@@ -1317,9 +1328,9 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
             plot_coord(coord, side, color=colors[side])
         pl.legend(frameon=False)
         pl.ylim(ylim)
-        pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(coord_pre)
+        common()
 
     plot_one((0, 0), 'pelvis_tilt', [-20, 10])
     plot_one((1, 0), 'pelvis_list', [-15, 15])
@@ -1383,6 +1394,9 @@ def plot_lower_limb_kinetics(kinetics_q_fpath, gl=None,
                 *args, **kwargs)
     def decorate_axes(ylim, title):
         # TODO pl.ylim(ylim)
+        pl.minorticks_on()
+        pl.grid(b=True, which='major', axis='y', color='gray', linestyle='--')
+        pl.grid(b=True, which='minor', axis='y', color='gray', linestyle=':')
         pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(title)
@@ -2913,8 +2927,6 @@ def plot_gait_kinematics(kin, primary_leg, cycle_start, cycle_end,
             pl.plot(toeoff_pgc * np.array([1, 1]), ax.get_ylim(),
                     c=(0.5, 0.5, 0.5))
 
-        pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
-
     pl.figure(figsize=(4, 12))
     plot_coordinate(1, 'hip_flexion')
     plot_coordinate(2, 'knee_angle', negate=True, label='knee flexion')
@@ -3022,6 +3034,9 @@ def plot_gait_torques(actu, primary_leg, cycle_start, cycle_end,
                     c=(0.5, 0.5, 0.5))
 
         pl.xticks([0.0, 25.0, 50.0, 75.0, 100.0])
+        pl.minorticks_on()
+        pl.grid(b=True, which='major', color='gray', linestyle='--')
+        pl.grid(b=True, which='minor', color='gray', linestyle='--')
 
     pl.figure(figsize=(4, 12))
     plot_coordinate(1, 'hip_flexion', label='hip flexion moment')
