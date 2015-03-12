@@ -2618,6 +2618,7 @@ def plot_force_plate_data(mot_file):
 def plot_joint_torque_contributions(muscle_contrib_table,
         total_joint_torque=None, muscles=None,
         plot_sum_of_selected_muscles=False,
+        plot_cocontraction=False,
         gl=None, side='right',
         show_legend=True):
     """Creates a stackplot of the individual muscle contributions to a joint
@@ -2642,6 +2643,9 @@ def plot_joint_torque_contributions(muscle_contrib_table,
         greater than or equal to the given number.
     plot_sum_of_selected_muscles : bool, optional (default: False)
         Also plot the sum of contribution of selected muscles.
+    plot_cocontraction : bool, optional (default: False)
+        Plot the positive and negative joint moment contributions separately to
+        visualize the amount of co-contraction.
     gl : dataman.GaitLandmarks or similar, optional.
         If you provide this, the joint torques are plotted as a function of
         percent gait cycle.
@@ -2688,6 +2692,9 @@ def plot_joint_torque_contributions(muscle_contrib_table,
     # Plot individual muscle contributions.
     if plot_sum_of_selected_muscles:
         sum_selected = 0.0 * time[:]
+    if plot_cocontraction:
+        sum_positive = 0.0 * time[:]
+        sum_negative = 0.0 * time[:]
 
     selected_cnames = list()
     for cname in table.colnames:
@@ -2714,11 +2721,18 @@ def plot_joint_torque_contributions(muscle_contrib_table,
         plot(time, table.col(cname), label=cname)
         if plot_sum_of_selected_muscles:
             sum_selected += table.col(cname)
+        if plot_cocontraction:
+            sum_positive += np.clip(table.col(cname)[:], 0, np.inf)
+            sum_negative += np.clip(table.col(cname)[:], -np.inf, 0)
 
     if plot_sum_of_selected_muscles:
         # 'above' because they appear in the legend above the legend entry
         # for this plot.
         plot(time, sum_selected, label='sum muscles above', lw=2, color='r')
+
+    if plot_cocontraction:
+        plot(time, sum_positive, label='positive', lw=2, color='darkgreen')
+        plot(time, sum_negative, label='negative', lw=2, color='darkgreen')
 
     # Plot total on top of individual muscle contributions.
     plot(time, total_sum, label='sum all muscles', lw=2, color='b')
