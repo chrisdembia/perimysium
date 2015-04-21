@@ -27,7 +27,8 @@ def savefigtolog(figname, *args, **kwargs):
 def nearest_index(array, val):
     return np.abs(array - val).argmin()
 
-def marker_error(model_filepath, states_storage, marker_trc_filepath):
+def marker_error(model_filepath, states_storage, marker_trc_filepath,
+        indegrees=False):
     """Creates an ndarray containing time histories of marker errors between
     experimental marker trajectories and joint-space kinematics (from RRA
     or CMC).
@@ -41,6 +42,9 @@ def marker_error(model_filepath, states_storage, marker_trc_filepath):
         A Storage file containing joint space kinematics.
     marker_trc_filepath : str
         The path to a TRCFile containing experimental marker trajectories.
+    indegrees: optional, bool
+        True if the states are in degrees instead of radians. Causes all state
+        variables to be multiplied by pi/180.
 
     Returns
     -------
@@ -84,7 +88,8 @@ def marker_error(model_filepath, states_storage, marker_trc_filepath):
             data[mname].append(distance)
 
     time, _ = modeling.analysis(m, states_storage,
-            lambda m, s: marker_error_for_frame(m, s, data, marker_names, trc)
+            lambda m, s: marker_error_for_frame(m, s, data, marker_names, trc),
+            indegrees=indegrees
             )
 
     n_times = len(data[marker_names[0]])

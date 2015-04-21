@@ -46,6 +46,8 @@ def printobj(obj, fname):
     else:
         obj.printToXML(fname)
 
+pi = 3.14159265359
+
 def replace_thelen_muscles_with_millardequilibrium_muscles(model):
     """Edits the given model:
 
@@ -604,7 +606,8 @@ def strengthen_muscles(model_fpath, new_model_fpath, scale_factor):
     printobj(m, new_model_fpath)
 
 
-def set_model_state_from_storage(model, storage, time, state=None):
+def set_model_state_from_storage(model, storage, time, state=None,
+        indegrees=False):
     """Set the state of the model from a state described in a states Storage
     (.STO) file, at the specified time in the Storage file. Note that the model
     is not modified in any way; we just use the model to set the state.
@@ -624,6 +627,9 @@ def set_model_state_from_storage(model, storage, time, state=None):
     state : simtk.State
         If you don't want us to call `initSystem()` on the model, then give us
         a state!
+    indegrees: optional, bool
+        True if the states are in degrees instead of radians. Causes all state
+        variables to be multiplied by pi/180.
 
     Returns
     -------
@@ -656,8 +662,10 @@ def set_model_state_from_storage(model, storage, time, state=None):
         # state values are returned in the same order given by state_names.
         if state_names.getitem(i) != 'time':
             sto_idx = storage.getStateIndex(state_names.getitem(i))
-            model.setStateVariable(state, state_names.getitem(i),
-                    sto_state.getitem(sto_idx))
+            state_value = sto_state.getitem(sto_idx)
+            if indegrees:
+                state_value *= pi / 180.0
+            model.setStateVariable(state, state_names.getitem(i), state_value)
 
     # TODO Maybe CAN rely on this.
     state.setTime(time)
@@ -666,7 +674,7 @@ def set_model_state_from_storage(model, storage, time, state=None):
 
     return state
 
-def analysis(model, storage, fcn, times=None):
+def analysis(model, storage, fcn, times=None, indegrees=False):
     """This basically does the same thing as an OpenSim analysis. Compute the
     result of `fcn` for each time in the states_sto, using the model's state,
     and return the resulting array.
@@ -686,6 +694,9 @@ def analysis(model, storage, fcn, times=None):
         simtk.State. Note that you can grab the time via state.getTime().
     times : array_like of float's
         Times at which to evaluate `fcn`.
+    indegrees: optional, bool
+        True if the states are in degrees instead of radians. Causes all state
+        variables to be multiplied by pi/180.
 
     Returns
     -------
@@ -714,7 +725,7 @@ def analysis(model, storage, fcn, times=None):
     qty = len(times) * [0]
     for i, t in enumerate(times):
         this_state = set_model_state_from_storage(model, storage, t,
-                state=state)
+                state=state, indegrees=indegrees)
         qty[i] = fcn(model, this_state)
 
     return times, qty
