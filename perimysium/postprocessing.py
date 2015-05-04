@@ -128,9 +128,9 @@ def plot_marker_error_general(output_filepath, marker_names, ymax, gl,
         if marker_name[0] == '.' or marker_name[0] == '_':
             for side in ['R', 'L']:
                 name = '%s%s' % (side, marker_name)
-                plot(data['time'], data[name], side, label=name)
+                plot(data['time'], mult * data[name], side, label=name)
         else:
-            plot(data['time'], data[marker_name], label=marker_name)
+            plot(data['time'], mult * data[marker_name], label=marker_name)
         pl.legend(frameon=False, loc='best')
         pl.ylim(ymin=0, ymax=ymax)
         xlim(data['time'])
