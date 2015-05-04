@@ -102,9 +102,8 @@ def marker_error(model_filepath, states_storage, marker_trc_filepath,
 
     return marker_err
 
-def plot_marker_error(output_filepath, marker_names, ymax, gl, *args,
-        **kwargs):
-    data = marker_error(*args, **kwargs)
+def plot_marker_error_general(output_filepath, marker_names, ymax, gl,
+        data, mult=100):
 
     def xlim(times):
         if gl != None:
@@ -126,12 +125,12 @@ def plot_marker_error(output_filepath, marker_names, ymax, gl, *args,
     fig = pl.figure(figsize=(12, 4 * np.ceil(len(marker_names) * 0.5)))
     for imark, marker_name in enumerate(marker_names):
         pl.subplot(np.ceil(len(marker_names) * 0.5), 2, imark + 1)
-        if marker_name[0] == '.':
+        if marker_name[0] == '.' or marker_name[0] == '_':
             for side in ['R', 'L']:
                 name = '%s%s' % (side, marker_name)
-                plot(data['time'], 100 * data[name], side, label=name)
+                plot(data['time'], data[name], side, label=name)
         else:
-            plot(data['time'], 100 * data[marker_name], label=marker_name)
+            plot(data['time'], data[marker_name], label=marker_name)
         pl.legend(frameon=False, loc='best')
         pl.ylim(ymin=0, ymax=ymax)
         xlim(data['time'])
@@ -144,6 +143,12 @@ def plot_marker_error(output_filepath, marker_names, ymax, gl, *args,
 
     pl.tight_layout()
     fig.savefig(output_filepath)
+
+
+def plot_marker_error(output_filepath, marker_names, ymax, gl, *args,
+        **kwargs):
+    data = marker_error(*args, **kwargs)
+    plot_marker_error_general(output_filepath, marker_names, ymax, gl, data)
 
 def print_marker_error(name, output_filepath, *args, **kwargs):
     """Calls marker_error() and prints the result to a storage file."""
