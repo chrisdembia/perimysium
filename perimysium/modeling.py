@@ -749,6 +749,7 @@ class Scale:
 
         """
         self.scale = osm.Scale()
+        self.scale.setName(body_name)
         self.scale.setSegmentName(body_name)
         self.scale.setScaleFactors(osm.Vec3(x, y, z))
         if scale_set:
