@@ -206,7 +206,19 @@ class TRCFile(object):
     for more information.
 
     """
-    def __init__(self, fpath):
+    def __init__(self, fpath=None, **kwargs):
+            #path=None,
+            #data_rate=None,
+            #camera_rate=None,
+            #num_frames=None,
+            #num_markers=None,
+            #units=None,
+            #orig_data_rate=None,
+            #orig_data_start_frame=None,
+            #orig_num_frames=None,
+            #marker_names=None,
+            #time=None,
+            #):
         """
         Parameters
         ----------
@@ -214,6 +226,14 @@ class TRCFile(object):
             Valid file path to a TRC (.trc) file.
 
         """
+        self.marker_names = []
+        if fpath != None:
+            read_from_file(fpath)
+        else:
+            for k, v in kwargs.items():
+                setattr(self, k, v)
+
+    def read_from_file(self, fpath):
         # Read the header lines / metadata.
         # ---------------------------------
         # Split by any whitespace.
@@ -308,9 +328,15 @@ class TRCFile(object):
                     'NumFrames (%i).', len(x), len(y), len(z), self.num_frames)
         self.marker_names += [name]
         self.num_markers += 1
-        self.data = append_fields(self.data,
-                ['%s_t%s' % (name, s) for s in 'xyz'],
-                [x, y, z], usemask=False)
+        if not hasattr(self, 'data'):
+            self.data = np.array(x, dtype=[('%s_tx' % name, 'float64')])
+            self.data = append_fields(self.data,
+                    ['%s_t%s' % (name, s) for s in 'yz'],
+                    [y, z], usemask=False)
+        else:
+            self.data = append_fields(self.data,
+                    ['%s_t%s' % (name, s) for s in 'xyz'],
+                    [x, y, z], usemask=False)
 
     def marker_at(self, name, time):
         x = np.interp(time, self.time, self.data[name + '_tx'])
@@ -413,6 +439,43 @@ def ndarray2storage(ndarray, storage_fpath, name=None, in_degrees=False):
             if line_num != 0:
                 f.write('\t')
             f.write('%f' % ndarray[col][i_row])
+        f.write('\n')
+
+    f.close()
+
+def dict2storage(data, storage_fpath, name=None, in_degrees=False):
+    """Saves an ndarray, with named dtypes, to an OpenSim Storage file.
+
+    Parameters
+    ----------
+    data : collections.OrderedDict of numpy.array's.
+    storage_fpath : str
+    in_degrees : bool, optional
+    name : str
+        Name of Storage object.
+
+    """
+    n_rows = len(data.values()[0])
+    n_cols = len(data)
+
+    f = open(storage_fpath, 'w')
+    f.write('%s\n' % (name if name else storage_fpath,))
+    f.write('version=1\n')
+    f.write('nRows=%i\n' % n_rows)
+    f.write('nColumns=%i\n' % n_cols)
+    f.write('inDegrees=%s\n' % ('yes' if in_degrees else 'no',))
+    f.write('endheader\n')
+    for line_num, col in enumerate(data.keys()):
+        if line_num != 0:
+            f.write('\t')
+        f.write('%s' % col)
+    f.write('\n')
+
+    for i_row in range(n_rows):
+        for line_num, col in enumerate(data.keys()):
+            if line_num != 0:
+                f.write('\t')
+            f.write('%f' % data[col][i_row])
         f.write('\n')
 
     f.close()
