@@ -228,7 +228,7 @@ class TRCFile(object):
         """
         self.marker_names = []
         if fpath != None:
-            read_from_file(fpath)
+            self.read_from_file(fpath)
         else:
             for k, v in kwargs.items():
                 setattr(self, k, v)
