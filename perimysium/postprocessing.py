@@ -3860,8 +3860,8 @@ def avg_and_std_toeoff(list_of_dicts):
     return nanmean(toeoffs), nanstd(toeoffs)
 
 def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
-        n_points=400, lw=1.0, alpha=0.5, label=None, plot_toeoff=False, *args,
-        **kwargs):
+        n_points=400, lw=1.0, ls='', alpha=0.5, label=None, plot_toeoff=False,
+        *args, **kwargs):
 
     pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
             n_points=n_points)
@@ -3872,7 +3872,7 @@ def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
 
     pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
 
-    pl.plot(pgc, avg, *args, lw=lw, label=label, **kwargs)
+    pl.plot(pgc, avg, *args, lw=lw, ls=ls, label=label, **kwargs)
 
 
 
