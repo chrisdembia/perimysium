@@ -430,7 +430,7 @@ def avg(time, value, init_time=None, final_time=None, interval=None):
             x=time[init_idx:final_idx:interval]) / duration
 
 def avg_over_gait_cycle(time, value, cycle_duration, cycle_start=None,
-        avg_over_half_if_partial_data=True):
+        num_halves=1):
     """Average a quantity over a gait cycle with duration/period
     `cycle_duration`. The cycle starts at time[0], unless you specify a
     `cycle_start` time. If `time` does not contain a full gait cycle's worth of
@@ -443,7 +443,7 @@ def avg_over_gait_cycle(time, value, cycle_duration, cycle_start=None,
     value : array_like
     cycle_duration : float
     cycle_start : float, optional
-    avg_over_gait_cycle : bool, optional
+    num_halves : int, optional
 
     """
     avail_duration = time[-1] - time[0]
@@ -461,21 +461,35 @@ def avg_over_gait_cycle(time, value, cycle_duration, cycle_start=None,
         if cycle_start + 0.5 * cycle_duration > time[-1]:
             raise Exception('Requested time for integration is unavailable '
                     'in the data.')
-        return avg(time, value, init_time=cycle_start,
-                final_time=cycle_start + 0.5 * cycle_duration)
+        if num_halves == 1:
+            return avg(time, value, init_time=cycle_start,
+                    final_time=cycle_start + 0.5 * cycle_duration)
+        else:
+            # What's the time difference between the time available
+            # and the time for half the gait cycle?
+            surplus_over_half = avail_duration - 0.5 * cycle_duration
+            init_times = np.linspace(
+                    cycle_start,
+                    cycle_start + surplus_over_half, num_halves)
+            half_cycle_avgs = np.empty(num_halves)
+            for ihalf in range(num_halves):
+                half_cycle_avgs[ihalf] = avg(time, value,
+                        init_time=init_times[ihalf],
+                        final_time=init_times[ihalf] + 0.5 * cycle_duration)
+            return np.mean(half_cycle_avgs)
 
 
 def specific_metabolic_cost(subject_mass,
-        time, value, cycle_duration, cycle_start=None):
+        time, value, cycle_duration, cycle_start=None, **kwargs):
     return 1.0 / subject_mass * avg_over_gait_cycle(time, value,
-            cycle_duration, cycle_start=cycle_start)
+            cycle_duration, cycle_start=cycle_start, **kwargs)
 
 def cost_of_transport(subject_mass,
         forward_speed,
         time, value, cycle_duration, cycle_start=None,
-        accel_due_to_gravity=9.81):
+        accel_due_to_gravity=9.81, **kwargs):
     return avg_over_gait_cycle(time, value, cycle_duration,
-            cycle_start=cycle_start) / (
+            cycle_start=cycle_start, **kwargs) / (
                     subject_mass * accel_due_to_gravity * forward_speed)
 
 def average_whole_body_power(actu_power, cycle_duration, cycle_start=None,
@@ -3860,7 +3874,8 @@ def avg_and_std_toeoff(list_of_dicts):
     return nanmean(toeoffs), nanstd(toeoffs)
 
 def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
-        n_points=400, lw=1.0, ls='', alpha=0.5, label=None, plot_toeoff=False,
+        n_points=400, lw=1.0, ls='-', alpha=0.5, label=None, plot_toeoff=False,
+        fill_std=True,
         *args, **kwargs):
 
     pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
@@ -3869,8 +3884,8 @@ def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
     if plot_toeoff:
         pl.axvline(avg_and_std_toeoff(list_of_dicts)[0], lw=lw,
                 color='lightgray', zorder=0)
-
-    pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
+    if fill_std:
+        pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
 
     pl.plot(pgc, avg, *args, lw=lw, ls=ls, label=label, **kwargs)
 
