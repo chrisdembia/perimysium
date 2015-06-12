@@ -1321,7 +1321,8 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
         pl.minorticks_on()
         pl.grid(b=True, which='major', axis='y', color='gray', linestyle='--')
         pl.grid(b=True, which='minor', axis='y', color='gray', linestyle=':')
-        pl.xlim(0, 100)
+        if gl != None:
+            pl.xlim(0, 100)
 
     def plot(time, y, label, side, *args, **kwargs):
         if gl != None:

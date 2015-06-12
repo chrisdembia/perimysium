@@ -14,6 +14,7 @@ import os
 import shutil
 import sys
 import re
+import warnings
 import xml.etree.ElementTree as etree
 
 try: import tables
@@ -248,7 +249,10 @@ class TRCFile(object):
         f.close()
 
         # First line.
-        self.path = first_line[3]
+        if len(first_line) > 3:
+            self.path = first_line[3]
+        else:
+            self.path = ''
 
         # Third line.
         self.data_rate = float(third_line[0])
@@ -287,9 +291,9 @@ class TRCFile(object):
         # Check the number of rows.
         n_rows = self.time.shape[0]
         if n_rows != self.num_frames:
-            warnings.warn('Header entry NumFrames, %i, does not '
+            warnings.warn('%s: Header entry NumFrames, %i, does not '
                     'match actual number of frames, %i, Changing '
-                    'NumFrames to match actual number.' % (
+                    'NumFrames to match actual number.' % (fpath,
                         self.num_frames, n_rows))
             self.num_frames = n_rows
 
