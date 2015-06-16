@@ -2282,6 +2282,9 @@ def shift_data_to_cycle(
     left limbs, but wish to plot them together, and thus must shift data for
     one of the limbs by 50% of the gait cycle.
 
+    This method also cuts the data so that your data covers at most a full gait
+    cycle but not more.
+
     The first three parameters below not need exactly match times in the `time`
     array.
 
@@ -2399,7 +2402,8 @@ def shift_data_to_cycle(
                     arbitrary_cycle_start_time)
         else:
             gap_before_avail_data = 0.0
-    data_exists_after_arbitrary_end = old_end_index != (len(time) - 1)
+    data_exists_after_arbitrary_end = time[-1] > arbitrary_cycle_end_time
+    # TODO previous: old_end_index != (len(time) - 1)
     if data_exists_after_arbitrary_end:
         #or (old_end_index == (len(time) - 1)
         #and time[old_end_index] < arbitrary_cycle_end_time):
@@ -2472,7 +2476,10 @@ def gait_landmarks_from_grf(mot_file,
         threshold=1e-5,
         do_plot=False,
         min_time=None,
-        max_time=None):
+        max_time=None,
+        plot_width=6,
+        show_legend=True,
+        ):
     """
     Obtain gait landmarks (right and left foot strike & toe-off) from ground
     reaction force (GRF) time series data.
@@ -2496,7 +2503,10 @@ def gait_landmarks_from_grf(mot_file,
         If set, only consider times greater than `min_time`.
     max_time : float, optional
         If set, only consider times greater than `max_time`.
-
+    plot_width : float, optional
+        If plotting, this is the width of the plotting window in inches.
+    show_legend : bool, optional
+        If plotting, show a legend.
     Returns
     -------
     right_foot_strikes : np.array
@@ -2554,7 +2564,7 @@ def gait_landmarks_from_grf(mot_file,
 
     if do_plot:
 
-        pl.figure(figsize=(6, 6))
+        pl.figure(figsize=(plot_width, 6))
         ones = np.array([1, 1])
 
         def myplot(index, label, ordinate, foot_strikes, toe_offs):
@@ -2582,12 +2592,12 @@ def gait_landmarks_from_grf(mot_file,
 
         myplot(1, 'left foot', left_grfy, left_foot_strikes, left_toe_offs)
 
-        if n_left <= n_right:
+        if show_legend and n_left <= n_right:
             pl.legend(loc='best')
 
         myplot(2, 'right foot', right_grfy, right_foot_strikes, right_toe_offs)
 
-        if n_left > n_right:
+        if show_legend and n_left > n_right:
             pl.legend(loc='best')
 
         pl.xlabel('time (s)')
@@ -3797,6 +3807,8 @@ def data_by_pgc(time, data, gl, side='left'):
         # TODO DEBUG
         # TODO import traceback
         # TODO traceback.print_stack()
+    if np.any(pgc < 0):
+        print('Percent gait cycle less than 0: %f' % np.min(pgc))
     if np.any(pgc > 100.01) or np.any(pgc < 0.0):
         raise Exception('Percent gait cycle out of range.')
 
