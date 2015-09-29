@@ -31,16 +31,16 @@ if sys.version_info[0] == 2 and sys.version_info[1] < 6:
     # This method does not exist prior to python2.6.
     def relpath(path, start=os.path.curdir):
         """Return a relative version of a path"""
-    
+
         if not path:
             raise ValueError("no path specified")
-    
+
         start_list = [x for x in os.path.abspath(start).split(os.path.sep) if x]
         path_list = [x for x in os.path.abspath(path).split(os.path.sep) if x]
-    
+
         # Work out how much of the filepath is shared by start and path.
         i = len(os.path.commonprefix([start_list, path_list]))
-    
+
         rel_list = [os.path.pardir] * (len(start_list)-i) + path_list[i:]
         if not rel_list:
             return curdir
@@ -49,7 +49,7 @@ if sys.version_info[0] == 2 and sys.version_info[1] < 6:
 
 def remove_fields_from_structured_ndarray(ndarray, fields, copy=True):
     """Returns the ndarray but now without the fields specified.
-    
+
     Parameters
     ----------
     ndarray: numpy.ndarray
@@ -67,7 +67,7 @@ def remove_fields_from_structured_ndarray(ndarray, fields, copy=True):
     Returns
     -------
     new_ndarray: numpy.ndarray
-    
+
     """
     names = list(ndarray.dtype.names)
     if type(fields) != list:
@@ -409,6 +409,18 @@ class TRCFile(object):
 
         f.close()
 
+    def addnoise(self, noiseWidth):
+        for imarker in range(self.num_markers):
+
+            # create the noise object
+            noise = np.random.normal(0, noiseWidth, self.num_frames)
+            # add noise the marker existing marker data.
+            self.data[self.marker_names[imarker] + '_tx'] += noise
+            self.data[self.marker_names[imarker] + '_ty'] += noise
+            self.data[self.marker_names[imarker] + '_tz'] += noise
+
+            return self
+
 
 def ndarray2storage(ndarray, storage_fpath, name=None, in_degrees=False):
     """Saves an ndarray, with named dtypes, to an OpenSim Storage file.
@@ -542,7 +554,7 @@ def storage2numpy(storage_file, excess_header_entries=0):
     Examples
     --------
     Columns from the storage file can be obtained as follows:
-    
+
         >>> data = storage2numpy('<filename>')
         >>> data['ground_force_vy']
 
@@ -679,7 +691,7 @@ def cmc_input_fpaths(cmc_setup_fpath, replace=None):
     actu = list()
     for path in setup.findall('.//force_set_files')[0].text.split():
         actu.append(valid_path(path, fname))
-    
+
     inputs['control_constraints'] = valid_path_helper(fname, setup,
             'constraints_file')
 
@@ -834,7 +846,7 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
     old_actu = list()
     for path in setup.findall('.//force_set_files')[0].text.split():
         old_actu.append(valid_path(path, fname))
-    
+
     old['control_constraints'] = valid_path_helper(fname, setup, 'constraints_file')
 
     # Data.
@@ -1070,7 +1082,7 @@ def dock_trc_in_pytable(h5file, trc_fpath, table_name, group_path, title='',
                         "mtime. Not overwriting.")
             if (getattr(current_group, table_name).attrs.mtime <
                     os.path.getmtime(trc_fpath)):
-                getattr(current_group, table_name)._f_remove(True) 
+                getattr(current_group, table_name)._f_remove(True)
                 _populate_table_with_trc(h5file, current_group, table_name,
                         trc_fpath)
             else:
@@ -1149,11 +1161,11 @@ def dock_storage_in_pytable(h5file, sto_fpath, group_path, name=None,
         if table is not None:
             # Table exists.
             mtime = getattr(table.attrs, 'mtime', None)
-            if (mtime is None or 
+            if (mtime is None or
                     (table.attrs.mtime < os.path.getmtime(sto_fpath))):
                 # Table exists and ((there is newer data available) OR (we
                 # don't know how old the stored table is)).
-                getattr(current_group, name)._f_remove(True) 
+                getattr(current_group, name)._f_remove(True)
                 _populate_table(h5file, current_group, name,
                         sto_fpath, **kwargs)
             else:
@@ -1357,11 +1369,11 @@ def dock_output_in_pytable(h5file, output_path, group_path, allow_one=False,
             if table is not None:
                 # Table exists.
                 mtime = getattr(table.attrs, 'mtime', None)
-                if (mtime is None or 
+                if (mtime is None or
                         (table.attrs.mtime < os.path.getmtime(filepath))):
                     # Table exists and ((there is newer data available) OR (we
                     # don't know how old the stored table is)).
-                    getattr(current_group, table_name)._f_remove(True) 
+                    getattr(current_group, table_name)._f_remove(True)
                     _populate_table(h5file, current_group, table_name,
                             filepath, **kwargs)
                 else:
