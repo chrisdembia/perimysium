@@ -418,7 +418,7 @@ class TRCFile(object):
         """
         for imarker in range(self.num_markers):
             components = ['_tx', '_ty', '_tz']
-            for iComponent in range(0, 3):
+            for iComponent in range(3):
                 # generate noise
                 noise = np.random.normal(0, noise_width, self.num_frames)
                 # add noise to each component of marker data.
