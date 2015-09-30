@@ -417,12 +417,12 @@ class TRCFile(object):
             noise_width : int
         """
         for imarker in range(self.num_markers):
-            # create the noise object
-            noise = np.random.normal(0, noise_width, self.num_frames)
-            # add noise to each component of marker data.
-            self.data[self.marker_names[imarker] + '_tx'] += noise
-            self.data[self.marker_names[imarker] + '_ty'] += noise
-            self.data[self.marker_names[imarker] + '_tz'] += noise
+            components = ['_tx', '_ty', '_tz']
+            for iComponent in range(0, 3):
+                # generate noise
+                noise = np.random.normal(0, noise_width, self.num_frames)
+                # add noise to each component of marker data.
+                self.data[self.marker_names[imarker] + components[iComponent]] += noise
 
 
 def ndarray2storage(ndarray, storage_fpath, name=None, in_degrees=False):
