@@ -336,7 +336,9 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
         mechanicalWorkRateOn=True,
         muscle_masses=None,
         muscle_effort_scaling_factor=None,
-        exclude=[]):
+        exclude=[],
+        specific_tension=None
+        ):
     """Adds Umberger2010MuscleMetabolicsProbes to an OpenSim model. Adds a
     probe for each muscle, as well as a whole-body probe that returns
     cumulative energy expended across all muscles in the model. When possible,
@@ -366,6 +368,10 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
     muscle_effort_scaling_factor : float, optional (default: 1.0)
     exclude : list of str's, optional
         List of muscle names to exclude.
+    specific_tension : float, optional
+        Set the specific tension to use for each muscle (N/m^2). We set this
+        even for muscles for which you supply muscle masses, but OpenSim will
+        ignore its value in those cases.
 
     """
     # Twitch ratios
@@ -443,6 +449,10 @@ def add_metabolics_probes(model, twitch_ratio_set='gait2392',
             # mass is ignored unless we set useProvidedMass to True.
             wholeBodyProbe.addMuscle(thisMuscle.getName(),
                                      slowTwitchRatio)
+
+            if specific_tension != None:
+                wholeBodyProbe.setSpecificTension(thisMuscle.getName(),
+                        specific_tension)
     
             # If we are given a muscle mass, use it in the probe.
             for key, val in muscle_masses.items():

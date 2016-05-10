@@ -952,6 +952,243 @@ def copy_cmc_inputs(cmc_setup_fpath, destination, replace=None,
 
     return old, new_fpaths
 
+def copy_so_inputs(so_setup_fpath, destination, replace=None,
+        do_not_copy=None, **kwargs):
+    """Given a static optimization setup file, copies all files necessary to
+    run static optimization over to `destination`. All files necessary to run
+    static optimization are stored in the same directory. The static
+    optimization setup file and the external loads files are edited so that
+    they refer to the correct copied files.
+
+    Also sets the results_directory to be 'results'.
+
+    TODO allow placing files in another location (not a flat structure); but
+    then update the path in the file so that it's relative to the file.
+
+    TODO Assumes the path to each ForceSet file specified in force_set_files
+    are separate by spaces, and that the paths themselves contain no spaces.
+    Putting quotes around a path is not sufficient to allow a space in a path.
+
+    Parameters
+    ----------
+    so_setup_fpath : str
+        Path to a static optimization setup file.
+    destination : str
+        Directory in which to place the setup files.
+    replace : dict, optional
+        In case the paths in the files may be invalid, replace parts of the
+        paths with the strings given in this dict. Keys are strings to look
+        for, values are what to replace the key with.
+    do_not_copy : list of str's, optional
+        Names of keys ('model', 'tasks', etc.; see the remaining parameters)
+        for which files should not be copied over. The corresponding tags in
+        the files will be updated so they refer to these original files, even
+        if the setup files have moved. This takes precedence over the
+        specification of new filenames for the remaining optional arguments.
+        'setup' and 'external_loads' are necessarily copied over. 'actuators'
+        are treated as a group: all the files in this field are copied, or none
+        of them are copied.
+    setup : str, optional
+        A new filename for the so setup file (the first argument to this
+        method).
+    model : str, optional
+        A new filename for this file.
+    actuators : str, optional
+        A new filename for this file. TODO NO LONGER WORKS.
+    coordinates_file : str, optional
+        A new filename for this file.
+    external_loads : str, optional
+        A new filename for this file.
+    force_plates : str, optional
+        A new filename for this file.
+    extload_kinematics : str, optional
+        A new filename for this file.
+
+    Returns
+    -------
+    old_fpaths : dict
+        A valid filepath to all the original static optimization input files
+        related to the provided static optimization setup file.
+        - setup
+        - model
+        - actuators (str if 1 file, list of str's if multiple files.
+        - coordinates_file
+        - external_loads
+        - force_plates
+        - extload_kinematics
+    new_fpaths : dict
+        A valid filepath to the all the new files that were just copied over.
+        The keys are as above for `old_fpaths`.
+        NOTE/TODO: For backwards compatibility, new_fpaths contains an entry
+        for 'actuators' if there is only one actuators (force set) file listed
+        in the so setup file. If there is more than one 'actuators' file, then
+        new_fpaths['actuators'] is a list of the force set files.
+
+    """
+    if do_not_copy != None:
+        if 'setup' in do_not_copy or 'external_loads' in do_not_copy:
+            raise Exception('`do_not_copy` cannot contain `setup` or '
+                    '`external_loads`.')
+    fname = so_setup_fpath
+
+    setup = etree.parse(fname)
+
+    old = dict()
+
+    def valid_path_helper(file_containing_path, xml, tag):
+
+        path = xml.findall('.//%s' % tag)[0].text
+        return valid_path(path, file_containing_path)
+
+    def valid_path(path, file_containing_path):
+        if path == None or path.lstrip() == '': return None
+        if os.path.exists(path): return path
+
+        if replace:
+            for key, val in replace.items():
+                path = path.replace(key, val)
+        if os.path.exists(path): return path
+
+        path = path.replace('\\', '/')
+        if os.path.exists(path): return path
+
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0], path))
+        if os.path.exists(path2): return path2
+
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0],
+                    path.lstrip()))
+        if os.path.exists(path2): return path2
+
+        path2 = os.path.normpath(
+                os.path.join(os.path.split(file_containing_path)[0],
+                    path.rstrip()))
+        if os.path.exists(path2): return path2
+
+        raise Exception("Paths '%s' and '%s' do not exist." % (path, path2))
+
+    # Get file names.
+    # ---------------
+    # Settings / parameters.
+    old['model'] = valid_path_helper(fname, setup, 'model_file')
+
+    # This is a list of files, not just 1 file.
+    old_actu = list()
+    for path in setup.findall('.//force_set_files')[0].text.split():
+        old_actu.append(valid_path(path, fname))
+
+    # Data.
+    old['coordinates_file'] = valid_path_helper(fname, setup,
+            'coordinates_file')
+    old['external_loads'] = valid_path_helper(fname, setup, 'external_loads_file')
+
+    # Try to open the external loads file.
+    extloads = etree.parse(old['external_loads'])
+    old['force_plates'] = valid_path_helper(old['external_loads'], extloads,
+            'datafile')
+    old['extload_kinematics'] = valid_path_helper(old['external_loads'],
+            extloads, 'external_loads_model_kinematics_file')
+
+    # Copy files over.
+    # ----------------
+    # We'll store the location of the copies.
+    new_fpaths = dict()
+    new_fpaths['setup'] = None
+    new_fpaths['model'] = None
+    new_actu_fpaths = list()
+    new_fpaths['actuators'] = None
+    new_fpaths['coordinates_file'] = None
+    new_fpaths['external_loads'] = None
+    new_fpaths['force_plates'] = None
+    new_fpaths['extload_kinematics'] = None
+
+    if not os.path.exists(destination): os.makedirs(destination)
+    for key, val in old.items():
+        if val and key != 'external_loads' and (do_not_copy == None or key not
+                in do_not_copy):
+            if key in kwargs:
+                new_fpath = os.path.join(destination, kwargs[key])
+                shutil.copy(val, new_fpath)
+                new_fpaths[key] = new_fpath
+            else:
+                shutil.copy(val, destination)
+                new_fpaths[key] = os.path.join(destination,
+                        os.path.basename(val))
+    if do_not_copy == None or 'actuators' not in do_not_copy:
+        for actu in old_actu:
+            shutil.copy(actu, destination)
+            new_actu_fpaths.append(
+                    os.path.join(destination, os.path.basename(actu)))
+
+    # Edit the names of the files in the setup files.
+    # -----------------------------------------------
+    def edit_field(xml, tag, key):
+        if old[key]:
+            if do_not_copy != None and key in do_not_copy:
+                xml.findall('.//%s' % tag)[0].text = \
+                        os.path.relpath(old[key], destination)
+            else:
+                if key in kwargs:
+                    newvalue = kwargs[key]
+                else:
+                    newvalue = os.path.basename(old[key])
+                xml.findall('.//%s' % tag)[0].text = newvalue
+
+    setup.findall('.//results_directory')[0].text = 'results'
+    edit_field(setup, 'model_file', 'model')
+    #edit_field(setup, 'force_set_files', 'actuators')
+    edit_field(setup, 'coordinates_file', 'coordinates_file')
+    edit_field(setup, 'external_loads_file', 'external_loads')
+
+    # We cannot use edit_field() to edit the force_set_files field, because
+    # it's more complicated. So we have these next bunch of lines to do that.
+    new_actu_value = ''
+    if do_not_copy != None and 'actuators' in do_not_copy:
+        for this_path in old_actu:
+            new_actu_value += ' %s' % os.path.relpath(this_path, destination)
+    else:
+        for this_path in new_actu_fpaths:
+            new_actu_value += ' %s' % os.path.basename(this_path)
+    setup.findall('.//%s' % 'force_set_files')[0].text = new_actu_value
+
+    # Give the user the new actuator file paths.
+    if len(new_actu_fpaths) > 0:
+        if len(new_actu_fpaths) == 1:
+            # Return just that one file path.
+            new_fpaths['actuators'] = new_actu_fpaths[0]
+        else:
+            # Return a list of file paths.
+            new_fpaths['actuators'] = new_actu_fpaths
+
+    edit_field(extloads, 'datafile', 'force_plates')
+    edit_field(extloads, 'external_loads_model_kinematics_file',
+            'extload_kinematics')
+
+    if 'setup' in kwargs:
+        setup_new_fpath = os.path.join(destination, kwargs['setup'])
+    else:
+        setup_new_fpath = os.path.join(destination,
+                os.path.basename(so_setup_fpath))
+    setup.write(setup_new_fpath)
+    new_fpaths['setup'] = setup_new_fpath
+
+    if 'external_loads' in kwargs:
+        extloads_new_fpath = os.path.join(destination, kwargs['external_loads'])
+    else:
+        extloads_new_fpath = os.path.join(destination,
+                os.path.basename(old['external_loads']))
+    extloads.write(extloads_new_fpath)
+    new_fpaths['external_loads'] = extloads_new_fpath
+
+    # Also, now we can also give the user the list of old actuator paths.
+    if len(old_actu) == 1:
+        old['actuators'] = old_actu[0]
+    else:
+        old['actuators'] = old_actu
+
+    return old, new_fpaths
+
 
 def dock_simulation_tree_in_pytable(h5fname, study_root, h5_root, verbose=True,
         **kwargs):

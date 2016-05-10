@@ -328,7 +328,8 @@ def metabolic_expenditure_const_eff(power, exclude=None, concentric_eff=0.25,
     return met_expenditure_rate, avg(power.cols.time, met_expenditure_rate)
 
 
-def sum_of_squared_activations(states_table, weight_map=None):
+def sum_of_squared_activations(states_table, weight_map=None, tool='cmc',
+        muscle_names=None):
     """Computes the sum, across all muscles, of the square of muscle
     activations.
 
@@ -339,6 +340,11 @@ def sum_of_squared_activations(states_table, weight_map=None):
     weight_map : dict, optional
         If you want to weight muscles by, e.g. muscle volume. Keys are muscle
         names, values are the weights as floats.
+    tool : str's, optional
+        Either 'cmc' or 'so'. Affects expected column names.
+    muscle_names : list of str's, optional
+        The names of columns (not just muscle names) to include in the
+        calculation.
 
     Returns
     -------
@@ -348,7 +354,14 @@ def sum_of_squared_activations(states_table, weight_map=None):
     """
     SSA = np.zeros(states_table.col('time').shape)
     for col_name in states_table.colnames:
-        if col_name.endswith('activation'):
+        use_this_col = False
+        if tool == 'cmc' and col_name.endswith('activation'):
+            if muscle_names == None or col_name in muscle_names:
+                use_this_col = True
+        if tool == 'so' and not col_name.endswith('time'):
+            if muscle_names == None or col_name in muscle_names:
+                use_this_col = True
+        if use_this_col:
             if weight_map == None:
                 weight = 1
             else:
@@ -357,13 +370,15 @@ def sum_of_squared_activations(states_table, weight_map=None):
     return SSA
 
 def avg_sum_of_squared_activations(states_table, cycle_duration=None,
-        cycle_start=None, weight_map=None):
+        cycle_start=None, weight_map=None, tool='cmc', muscle_names=None):
     """Computes the average value of the sum of squared activations.
 
     Parameters
     ----------
     states_table : tables.Table
-        A pyTables table containing muscle activation time series data.
+        A pyTables table containing muscle activation time series data. Could
+        either be from the states.sto file from CMC or the activation.sto file
+        from Static Optimization.
     cycle_duration : optional, float
         If provided, the average will only be over this duration, starting
         either at the initial time, or at `cycle_start` if provided.
@@ -373,6 +388,11 @@ def avg_sum_of_squared_activations(states_table, cycle_duration=None,
     weight_map : dict, optional
         If you want to weight muscles by, e.g. muscle volume. Keys are muscle
         names, values are the weights as floats.
+    tool : string, optional
+        Either 'cmc' or 'so'. Affects expected column names.
+    muscle_names : list of str's, optional
+        The names of columns (not just muscle names) to include in the
+        calculation.
 
     Returns
     -------
@@ -381,7 +401,8 @@ def avg_sum_of_squared_activations(states_table, cycle_duration=None,
 
     """
     time = states_table.cols.time
-    ssa = sum_of_squared_activations(states_table, weight_map=weight_map)
+    ssa = sum_of_squared_activations(states_table, weight_map=weight_map,
+            tool=tool, muscle_names=muscle_names)
     if cycle_duration == None:
         duration = time[-1] - time[0]
         integral = np.trapz(ssa, x=time)
@@ -428,6 +449,53 @@ def avg(time, value, init_time=None, final_time=None, interval=None):
     duration = time[final_idx-1] - time[init_idx]
     return np.trapz(value[init_idx:final_idx:interval],
             x=time[init_idx:final_idx:interval]) / duration
+
+def rms_continuous(time, value, init_time=None, final_time=None,
+        interval=None):
+    """Compute root-mean-square of a continuous quantity (by integrating over
+    time with the trapezoidal rule).  Only use for one-dimensional arrays.
+
+    Parameters
+    ----------
+    time : numpy.array
+        Array of time values, probably in seconds.
+    value : numpy.array
+        Array of the quantity for which you want to compute RMS.
+    init_time : float, optional
+        The lower bound on the integral, in units of time (probably seconds).
+        By default, the first time in the series is used.
+    final_time : float, optional
+        The upper bound on the integral, in units of time (probably seconds).
+        By default, the last time in the series is used.
+    interval : int, optional
+        Interval of data points to skip/include. By default, no points are
+        skipped.
+
+    Returns
+    -------
+    rms : float
+        Time-averaged value of the data between the times specified.
+
+    """
+    # TODO somewhat inefficient, since we are wasting time squaring values that
+    # may not be integrated.
+    square = value**2
+    mean_square = avg(time, value**2, init_time=init_time,
+            final_time=final_time, interval=interval)
+    root_mean_square = np.sqrt(mean_square)
+
+    return root_mean_square
+
+def max_(time, value, init_time=None, final_time=None, interval=None):
+    if init_time == None:
+        init_idx = 0
+    else:
+        init_idx = np.abs(time - init_time).argmin()
+    if final_time == None:
+        final_idx = len(time)
+    else:
+        final_idx = np.abs(time - final_time).argmin()
+    return max(value[init_idx:final_idx:interval])
 
 def avg_over_gait_cycle(time, value, cycle_duration, cycle_start=None,
         num_halves=1):
@@ -478,6 +546,14 @@ def avg_over_gait_cycle(time, value, cycle_duration, cycle_start=None,
                         final_time=init_times[ihalf] + 0.5 * cycle_duration)
             return np.mean(half_cycle_avgs)
 
+def max_over_gait_cycle(time, value, cycle_duration, cycle_start=None):
+    avail_duration = time[-1] - time[0]
+
+    if cycle_start == None:
+        cycle_start = time[0]
+
+    return max_(time, value, init_time=cycle_start,
+            final_time=cycle_start + min(avail_duration, cycle_duration))
 
 def specific_metabolic_cost(subject_mass,
         time, value, cycle_duration, cycle_start=None, **kwargs):
@@ -509,6 +585,11 @@ def average_whole_body_power(actu_power, cycle_duration, cycle_start=None,
                     total_power += -np.clip(data, -np.inf, 0)
                 else:
                     raise Exception("sign is '%s'; unexpected." % sign)
+            else:
+                pass
+                #if re.search(ignore, coln):
+                #    print("Skipped %s." % coln)
+
     return avg_over_gait_cycle(actu_power.cols.time[:], total_power,
             cycle_duration, cycle_start=cycle_start)
 
@@ -3888,7 +3969,10 @@ def avg_and_std_toeoff(list_of_dicts):
 
 def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
         n_points=400, lw=1.0, ls='-', alpha=0.5, label=None, plot_toeoff=False,
-        fill_std=True,
+        fill_std=True, fill_lw=0,
+        toeoff_color='lightgray',
+        toeoff_alpha=1.0,
+        axvline_ymax=1.0,
         *args, **kwargs):
 
     pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
@@ -3896,11 +3980,13 @@ def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
 
     if plot_toeoff:
         pl.axvline(avg_and_std_toeoff(list_of_dicts)[0], lw=lw,
-                color='lightgray', zorder=0)
+                color=toeoff_color, zorder=0, alpha=toeoff_alpha,
+                ymax=axvline_ymax)
     if fill_std:
-        pl.fill_between(pgc, avg + std, avg - std, alpha=alpha, *args, **kwargs)
+        pl.fill_between(pgc, avg + std, avg - std, alpha=alpha,
+                linewidth=fill_lw, *args, **kwargs)
 
-    pl.plot(pgc, avg, *args, lw=lw, ls=ls, label=label, **kwargs)
+    return pl.plot(pgc, avg, *args, lw=lw, ls=ls, label=label, **kwargs)
 
 
 
