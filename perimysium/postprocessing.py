@@ -3973,6 +3973,7 @@ def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
         toeoff_color='lightgray',
         toeoff_alpha=1.0,
         axvline_ymax=1.0,
+        axvline_ymin=0.0,
         *args, **kwargs):
 
     pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
@@ -3981,7 +3982,8 @@ def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
     if plot_toeoff:
         pl.axvline(avg_and_std_toeoff(list_of_dicts)[0], lw=lw,
                 color=toeoff_color, zorder=0, alpha=toeoff_alpha,
-                ymax=axvline_ymax)
+                ymax=axvline_ymax,
+                ymin=axvline_ymin)
     if fill_std:
         pl.fill_between(pgc, avg + std, avg - std, alpha=alpha,
                 linewidth=fill_lw, *args, **kwargs)
