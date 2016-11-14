@@ -3951,15 +3951,33 @@ def plot_pgc(time, data, gl, side='left', axes=None, plot_toeoff=False, *args,
         if 'label' in kwargs: kwargs.pop('label')
         plot_toeoff_pgc(gl, side, ax, *args, zorder=0, **kwargs)
 
+def avg_and_std_time_series_across_gait_trials_bysubj(list_of_list_of_dicts,
+        n_points=400):
+    """list_of_list_of_dicts: the length of the outer list is the number of
+    subjects, and the inner lists contain an entry for each trial, leg, etc.
+    The returned avg and std are across just the subjects
+    (the variation within a subject is not included).
+    """
+    n_subjs = len(list_of_list_of_dicts)
+    data = np.empty((n_points, n_subjs))
+    for i, subj_list_of_dicts in enumerate(list_of_list_of_dicts):
+        output_pgc, data[:, i], _ = avg_and_std_time_series_across_gait_trials(
+                subj_list_of_dicts, n_points=n_points)
+    return output_pgc, nanmean(data, axis=1), nanstd(data, axis=1)
 
 def avg_and_std_time_series_across_gait_trials(list_of_dicts, n_points=400):
-
     output_pgc = np.linspace(0, 100, n_points)
     data = np.empty((n_points, len(list_of_dicts)))
     for i, item in enumerate(list_of_dicts):
         pgc, ys = data_by_pgc(**item)
         data[:, i] = np.interp(output_pgc, pgc, ys, left=np.nan, right=np.nan)
     return output_pgc, nanmean(data, axis=1), nanstd(data, axis=1)
+
+def avg_and_std_toeoff_bysubj(list_of_list_of_dicts):
+    toeoffs = np.empty(len(list_of_list_of_dicts))
+    for i, subj_list_of_dicts in enumerate(list_of_list_of_dicts):
+        toeoffs[i], _ = avg_and_std_toeoff(subj_list_of_dicts)
+    return nanmean(toeoffs), nanstd(toeoffs)
 
 def avg_and_std_toeoff(list_of_dicts):
     toeoffs = np.empty(len(list_of_dicts))
@@ -3968,7 +3986,9 @@ def avg_and_std_toeoff(list_of_dicts):
     return nanmean(toeoffs), nanstd(toeoffs)
 
 def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
-        n_points=400, lw=1.0, ls='-', alpha=0.5, label=None, plot_toeoff=False,
+        n_points=400,
+        bysubj=False,
+        lw=1.0, ls='-', alpha=0.5, label=None, plot_toeoff=False,
         fill_std=True, fill_lw=0,
         toeoff_color='lightgray',
         toeoff_alpha=1.0,
@@ -3976,14 +3996,20 @@ def plot_avg_and_std_time_series_across_gait_trials(list_of_dicts,
         axvline_ymin=0.0,
         *args, **kwargs):
 
-    pgc, avg, std = avg_and_std_time_series_across_gait_trials(list_of_dicts,
-            n_points=n_points)
+    if bysubj:
+        pgc, avg, std = avg_and_std_time_series_across_gait_trials_bysubj(
+                list_of_dicts, n_points=n_points)
+    else:
+        pgc, avg, std = avg_and_std_time_series_across_gait_trials(
+                list_of_dicts, n_points=n_points)
 
     if plot_toeoff:
-        pl.axvline(avg_and_std_toeoff(list_of_dicts)[0], lw=lw,
-                color=toeoff_color, zorder=0, alpha=toeoff_alpha,
-                ymax=axvline_ymax,
-                ymin=axvline_ymin)
+        if bysubj:
+            avg_toeoff = avg_and_std_toeoff_bysubj(list_of_dicts)[0]
+        else:
+            avg_toeoff = avg_and_std_toeoff(list_of_dicts)[0]
+        pl.axvline(avg_toeoff, lw=lw, color=toeoff_color, zorder=0,
+                alpha=toeoff_alpha, ymax=axvline_ymax, ymin=axvline_ymin)
     if fill_std:
         pl.fill_between(pgc, avg + std, avg - std, alpha=alpha,
                 linewidth=fill_lw, *args, **kwargs)
