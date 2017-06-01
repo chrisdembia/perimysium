@@ -1454,7 +1454,8 @@ def plot_lower_limb_kinematics(kinematics_q_fpath, gl=None,
     return fig
 
 def plot_lower_limb_kinetics(kinetics_q_fpath, gl=None,
-        kinetics_q_compare_fpath=None, compare_name=None):
+        kinetics_q_compare_fpath=None, compare_name=None,
+        inverse_dynamics_output=False):
     """Plots pelvis tilt, pelvis list, pelvis rotation, hip adduction, hip
     flexion, knee, and ankle moments for both limbs.
 
@@ -1493,6 +1494,7 @@ def plot_lower_limb_kinetics(kinetics_q_fpath, gl=None,
             pl.plot(time, y, label=label, *args, **kwargs)
 
     def plot_coord(coord, side='right', *args, **kwargs):
+        if inverse_dynamics_output: coord += '_moment'
         if kinetics_q_compare_fpath:
             plot(sto2['time'], sto2[coord], None, side, alpha=0.5,
                     *args, **kwargs)
@@ -1503,7 +1505,8 @@ def plot_lower_limb_kinetics(kinetics_q_fpath, gl=None,
         pl.minorticks_on()
         pl.grid(b=True, which='major', axis='y', color='gray', linestyle='--')
         pl.grid(b=True, which='minor', axis='y', color='gray', linestyle=':')
-        pl.xlim(0, 100)
+        if gl:
+            pl.xlim(0, 100)
         pl.axhline(0, color='gray', zorder=0)
         pl.title(title)
 
@@ -2659,13 +2662,14 @@ def gait_landmarks_from_grf(mot_file,
                 if i == 0: kwargs = {'label': 'foot strikes'}
                 else: kwargs = dict()
                 pl.plot(strike * ones, ax.get_ylim(), 'r', **kwargs)
-                pl.text(strike, .03 * ax.get_ylim()[1], ' %.3f' % strike)
+                pl.text(strike, .03 * ax.get_ylim()[1], ' %.3f' % round(strike,
+                    3))
 
             for i, off in enumerate(toe_offs):
                 if i == 0: kwargs = {'label': 'toe-offs'}
                 else: kwargs = dict()
                 pl.plot(off * ones, ax.get_ylim(), 'b', **kwargs)
-                pl.text(off, .03 * ax.get_ylim()[1], ' %.3f' % off)
+                pl.text(off, .03 * ax.get_ylim()[1], ' %.3f' % round(off, 3))
 
         # We'll place the legend on the plot with less strikes.
         n_left = len(left_toe_offs) + len(left_foot_strikes)
