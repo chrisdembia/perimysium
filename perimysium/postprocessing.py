@@ -2661,14 +2661,14 @@ def gait_landmarks_from_grf(mot_file,
             for i, strike in enumerate(foot_strikes):
                 if i == 0: kwargs = {'label': 'foot strikes'}
                 else: kwargs = dict()
-                pl.plot(strike * ones, ax.get_ylim(), 'r', **kwargs)
+                pl.axvline(strike, color='r', **kwargs)
                 pl.text(strike, .03 * ax.get_ylim()[1], ' %.3f' % round(strike,
                     3))
 
             for i, off in enumerate(toe_offs):
                 if i == 0: kwargs = {'label': 'toe-offs'}
                 else: kwargs = dict()
-                pl.plot(off * ones, ax.get_ylim(), 'b', **kwargs)
+                pl.axvline(off, color='b', **kwargs)
                 pl.text(off, .03 * ax.get_ylim()[1], ' %.3f' % round(off, 3))
 
         # We'll place the legend on the plot with less strikes.
